@@ -6,7 +6,6 @@ import { CreateAppointment } from '@/shared/types';
 import { 
   Calendar, 
   CheckCircle, 
-  Heart,
   Sparkles
 } from 'lucide-react';
 
@@ -14,7 +13,7 @@ export default function Home() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const { notifications, dismissNotification, showSuccess } = useNotifications();
+  const { notifications, dismissNotification } = useNotifications();
 
   // Simulate real-time updates (in production, you'd use WebSockets or polling)
   useEffect(() => {
