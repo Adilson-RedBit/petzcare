@@ -1,6 +1,7 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "petcare-agenda-worker",
+	"main": "./src/worker/index.ts",
 	"compatibility_date": "2025-06-17",
 	"compatibility_flags": [
 		"nodejs_compat"
@@ -18,6 +19,12 @@
 			"binding": "DB",
 			"database_name": "petcare-db",
 			"database_id": "acd5b368-09e4-40cb-82ef-257a01dbf654"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "R2_BUCKET",
+			"bucket_name": "petcare-assets"
 		}
 	]
 }
