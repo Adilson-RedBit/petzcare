@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Layout from '@/react-app/components/Layout';
 import AppointmentForm from '@/react-app/components/AppointmentForm';
 import NotificationBanner, { useNotifications } from '@/react-app/components/NotificationBanner';
