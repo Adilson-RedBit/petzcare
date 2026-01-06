@@ -15,7 +15,8 @@ export async function authMiddleware(c: Context, next: Next) {
   }
 
   try {
-    const payload = await verifyJWT(token);
+    const secret = (c.env as any).JWT_SECRET || "dev-secret-key-for-local-development-only-K8j3mN9pQ2rT5vX8zA1bC4dE7fG0hI3jK6mN9pQ2rT5vX8zA1bC4dE7fG0hI";
+    const payload = await verifyJWT(token, secret);
     if (!payload) {
       return c.json({ error: "Unauthorized: Invalid token" }, 401);
     }

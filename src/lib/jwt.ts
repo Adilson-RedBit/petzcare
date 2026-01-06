@@ -95,14 +95,15 @@ async function verify(data: string, signature: string, secret: string): Promise<
 /**
  * Gera um token JWT
  * @param payload - Dados do usuário
+ * @param secret - Chave secreta para assinatura
  * @param expiresIn - Tempo de expiração em segundos (padrão: 7 dias)
  * @returns Token JWT assinado
  */
 export async function generateJWT(
   payload: Omit<JWTPayload, 'iat' | 'exp'>,
+  secret: string,
   expiresIn: number = 60 * 60 * 24 * 7 // 7 dias
 ): Promise<string> {
-  const secret = getSecretKey();
   const now = Math.floor(Date.now() / 1000);
   
   const jwtPayload: JWTPayload = {
@@ -128,11 +129,11 @@ export async function generateJWT(
 /**
  * Verifica e decodifica um token JWT
  * @param token - Token JWT
+ * @param secret - Chave secreta para verificação
  * @returns Payload decodificado ou null se inválido
  */
-export async function verifyJWT(token: string): Promise<JWTPayload | null> {
+export async function verifyJWT(token: string, secret: string): Promise<JWTPayload | null> {
   try {
-    const secret = getSecretKey();
     const parts = token.split('.');
     
     if (parts.length !== 3) {

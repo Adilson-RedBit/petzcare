@@ -33,12 +33,13 @@ app.post("/api/auth/login", async (c) => {
   // Para o teste de campo, vamos permitir o login padrão
   // Em um sistema real, aqui verificaríamos o hash do banco
   if (email === "admin@petcare.com" && password === "admin123") {
+    const secret = (c.env as any).JWT_SECRET || "dev-secret-key-for-local-development-only-K8j3mN9pQ2rT5vX8zA1bC4dE7fG0hI3jK6mN9pQ2rT5vX8zA1bC4dE7fG0hI";
     const token = await generateJWT({
       userId: 1,
       email: email,
       name: "Administrador",
       role: "professional"
-    });
+    }, secret);
 
     setCookie(c, "auth_token", token, {
       httpOnly: true,
