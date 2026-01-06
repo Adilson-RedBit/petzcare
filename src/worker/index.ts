@@ -124,6 +124,8 @@ app.post("/api/pets", zValidator("json", CreatePetSchema), async (c) => {
 app.get("/api/appointments", async (c) => {
   try {
     const date = c.req.query("date");
+    const phone = c.req.query("phone");
+    
     let query = `
       SELECT 
         a.*,
@@ -134,9 +136,20 @@ app.get("/api/appointments", async (c) => {
     `;
     
     const params = [];
+    const conditions = [];
+    
     if (date) {
-      query += " WHERE a.appointment_date = ?";
+      conditions.push("a.appointment_date = ?");
       params.push(date);
+    }
+    
+    if (phone) {
+      conditions.push("p.owner_phone = ?");
+      params.push(phone);
+    }
+    
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
     }
     
     query += " ORDER BY a.appointment_date DESC, a.appointment_time";
