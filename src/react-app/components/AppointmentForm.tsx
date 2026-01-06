@@ -24,7 +24,7 @@ interface AppointmentHistory {
   pet: { name: string };
   appointment_date: string;
   appointment_time: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'in_progress' | 'completed';
+  status: 'agendado' | 'confirmado' | 'cancelado' | 'em_andamento' | 'concluido';
   services: { name: string }[];
 }
 
@@ -72,13 +72,13 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'concluido':
         return <Badge className="bg-green-100 text-green-800 border-green-200">Concluído</Badge>;
-      case 'confirmed':
+      case 'confirmado':
         return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Confirmado</Badge>;
-      case 'in_progress':
+      case 'em_andamento':
         return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 animate-pulse">Em Andamento</Badge>;
-      case 'cancelled':
+      case 'cancelado':
         return <Badge className="bg-red-100 text-red-800 border-red-200">Cancelado</Badge>;
       default:
         return <Badge className="bg-gray-100 text-gray-800 border-gray-200">Pendente</Badge>;
@@ -87,10 +87,10 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-      case 'confirmed': return <CheckCircle2 className="h-5 w-5 text-blue-500" />;
-      case 'in_progress': return <Play className="h-5 w-5 text-yellow-500" />;
-      case 'cancelled': return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'concluido': return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+      case 'confirmado': return <CheckCircle2 className="h-5 w-5 text-blue-500" />;
+      case 'em_andamento': return <Play className="h-5 w-5 text-yellow-500" />;
+      case 'cancelado': return <XCircle className="h-5 w-5 text-red-500" />;
       default: return <Clock className="h-5 w-5 text-gray-500" />;
     }
   };
