@@ -258,7 +258,7 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
                             <h4 className="font-bold text-gray-900">{app.pet.name}</h4>
                             <p className="text-xs text-gray-500 flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
-                              {new Date(app.appointment_date).toLocaleDateString('pt-BR')} às {app.appointment_time}
+                              {app.appointment_date.split('-').reverse().join('/')} às {app.appointment_time}
                             </p>
                           </div>
                         </div>
