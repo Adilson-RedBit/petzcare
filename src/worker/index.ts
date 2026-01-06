@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { cors } from "hono/cors";
+import { setCookie, getCookie, deleteCookie } from "hono/cookie";
 import { 
   PetSchema, 
   CreatePetSchema,
@@ -9,6 +10,7 @@ import {
 } from "../shared/types";
 import { authMiddleware } from "./auth";
 import { rateLimit } from "../lib/rateLimit";
+import { generateJWT } from "../lib/jwt";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -22,6 +24,42 @@ app.use("*", async (c, next) => {
     return c.json({ error: "Too many requests" }, 429);
   }
   await next();
+});
+
+// Auth endpoints
+app.post("/api/auth/login", async (c) => {
+  const { email, password } = await c.req.json();
+  
+  // Para o teste de campo, vamos permitir o login padrão
+  // Em um sistema real, aqui verificaríamos o hash do banco
+  if (email === "admin@petcare.com" && password === "admin123") {
+    const token = await generateJWT({
+      userId: 1,
+      email: email,
+      name: "Administrador",
+      role: "professional"
+    });
+
+    setCookie(c, "auth_token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+      maxAge: 60 * 60 * 24 * 7, // 7 dias
+      path: "/"
+    });
+
+    return c.json({
+      success: true,
+      user: { id: 1, email, name: "Administrador", role: "professional" }
+    });
+  }
+
+  return c.json({ error: "Email ou senha incorretos" }, 401);
+});
+
+app.post("/api/auth/logout", (c) => {
+  deleteCookie(c, "auth_token");
+  return c.json({ success: true });
 });
 
 // Middlewares de Proteção
@@ -171,30 +209,14 @@ app.post("/api/appointments/:id/cancel-client", async (c) => {
   try {
     const id = c.req.param("id");
     const { phone } = await c.req.json();
-
     if (!phone) return c.json({ error: "Telefone é obrigatório" }, 400);
-
-    // Verificar se o agendamento pertence a este telefone e se pode ser cancelado
-    const appointment = await c.env.DB.prepare(`
-      SELECT a.id, a.status 
-      FROM appointments a 
-      JOIN pets p ON a.pet_id = p.id 
-      WHERE a.id = ? AND p.owner_phone = ?
-    `).bind(id, phone).first() as any;
-
-    if (!appointment) {
-      return c.json({ error: "Agendamento não encontrado ou não pertence a este número" }, 404);
-    }
-
-    if (['em_andamento', 'concluido', 'cancelado'].includes(appointment.status)) {
-      return c.json({ error: `Não é possível cancelar um agendamento com status: ${appointment.status}` }, 400);
-    }
-
+    const appointment = await c.env.DB.prepare(`SELECT a.id, a.status FROM appointments a JOIN pets p ON a.pet_id = p.id WHERE a.id = ? AND p.owner_phone = ?`).bind(id, phone).first() as any;
+    if (!appointment) return c.json({ error: "Agendamento não encontrado" }, 404);
+    if (['em_andamento', 'concluido', 'cancelado'].includes(appointment.status)) return c.json({ error: "Não é possível cancelar" }, 400);
     await c.env.DB.prepare("UPDATE appointments SET status = 'cancelado', updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(id).run();
-    
-    return c.json({ success: true, message: "Agendamento cancelado com sucesso" });
+    return c.json({ success: true });
   } catch (error) {
-    return c.json({ error: "Erro ao processar cancelamento" }, 500);
+    return c.json({ error: "Erro ao cancelar" }, 500);
   }
 });
 

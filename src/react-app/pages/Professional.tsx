@@ -67,22 +67,40 @@ export default function Professional() {
     }
   }, []);
 
-  const handleLogin = () => {
-    const validEmail = (storedEmail || DEFAULT_EMAIL).toLowerCase();
-    const validPassword = storedPassword || DEFAULT_PASSWORD;
-
-    if (authEmail.trim().toLowerCase() === validEmail && authPassword === validPassword) {
-      setIsAuthenticated(true);
-      setAuthUserEmail(authEmail.trim().toLowerCase());
+  const handleLogin = async () => {
+    try {
       setAuthError(null);
-    } else {
-      setAuthError('Email ou senha inválidos.');
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setIsAuthenticated(true);
+        setAuthUserEmail(authEmail.trim().toLowerCase());
+        setAuthError(null);
+      } else {
+        setAuthError(data.error || 'Email ou senha inválidos.');
+      }
+    } catch (error) {
+      setAuthError('Erro ao conectar com o servidor.');
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setAuthUserEmail('');
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      setIsAuthenticated(false);
+      setAuthUserEmail('');
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+      // Forçar logout mesmo em caso de erro na API
+      setIsAuthenticated(false);
+      setAuthUserEmail('');
+    }
   };
 
   const handleUpdateCredentials = () => {
