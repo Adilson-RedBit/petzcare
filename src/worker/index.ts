@@ -7,10 +7,41 @@ import {
   AppointmentSchema,
   CreateAppointmentSchema
 } from "../shared/types";
+import { authMiddleware } from "./auth";
+import { rateLimit } from "../lib/rateLimit";
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", cors());
+
+// Rate Limiting Global por IP
+app.use("*", async (c, next) => {
+  const ip = c.req.header("cf-connecting-ip") || "anonymous";
+  // Máximo 100 requisições por minuto por IP
+  const allowed = await rateLimit(c, `global_${ip}`, 100, 60);
+  if (!allowed) {
+    return c.json({ error: "Too many requests" }, 429);
+  }
+  await next();
+});
+
+// Middlewares de Proteção
+app.use("/api/admin/*", authMiddleware);
+app.use("/api/pets", (c, next) => {
+  // Apenas permitir GET se houver um filtro de telefone ou se for POST (cadastro)
+  // Caso contrário, exige autenticação para listar TODOS os pets
+  if (c.req.method === "GET" && !c.req.query("phone") && !c.req.header("Authorization") && !c.req.cookie("auth_token")) {
+    return authMiddleware(c, next);
+  }
+  return next();
+});
+app.use("/api/appointments", (c, next) => {
+  // Mesma lógica para agendamentos: proteger a lista completa
+  if (c.req.method === "GET" && !c.req.query("phone") && !c.req.header("Authorization") && !c.req.cookie("auth_token")) {
+    return authMiddleware(c, next);
+  }
+  return next();
+});
 
 // Services endpoints
 app.get("/api/services", async (c) => {
@@ -79,9 +110,18 @@ app.get("/api/services", async (c) => {
 // Pets endpoints
 app.get("/api/pets", async (c) => {
   try {
-    const result = await c.env.DB.prepare(
-      "SELECT * FROM pets ORDER BY name"
-    ).all();
+    const phone = c.req.query("phone");
+    let query = "SELECT * FROM pets";
+    const params = [];
+
+    if (phone) {
+      query += " WHERE owner_phone = ?";
+      params.push(phone);
+    }
+    
+    query += " ORDER BY name";
+    
+    const result = await c.env.DB.prepare(query).bind(...params).all();
     
     const pets = result.results.map((row: any) => PetSchema.parse(row));
     return c.json(pets);
@@ -745,8 +785,11 @@ app.post("/api/admin/business-config", async (c) => {
   }
 });
 
-// Business logo upload endpoint
-app.post("/api/upload-business-logo", async (c) => {
+// Admin endpoints (exige autenticação já via middleware global)
+app.get("/api/admin/appointments", async (c) => {
+  // Já protegido pelo middleware /api/admin/*
+  return app.request.get("/api/appointments", c.req); 
+});
   try {
     const formData = await c.req.formData();
     const logo = formData.get('logo') as File;
