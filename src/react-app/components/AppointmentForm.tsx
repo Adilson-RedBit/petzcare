@@ -3,7 +3,30 @@ import { usePets, useAvailableSlots } from '@/react-app/hooks/useApi';
 import { CreateAppointment, Service, Pet, CreatePet } from '@/shared/types';
 import ServiceCard from './ServiceCard';
 import PetForm from './PetForm';
-import { Calendar, Clock, User, Phone, Mail, MessageSquare, Check } from 'lucide-react';
+import { 
+  Calendar, 
+  Clock, 
+  User, 
+  Phone, 
+  Mail, 
+  MessageSquare, 
+  Check, 
+  ClipboardList,
+  CheckCircle2,
+  XCircle,
+  Play
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+
+interface AppointmentHistory {
+  id: number;
+  pet: { name: string };
+  appointment_date: string;
+  appointment_time: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'in_progress' | 'completed';
+  services: { name: string }[];
+}
 
 interface AppointmentFormProps {
   onSubmit: (appointment: CreateAppointment) => Promise<void>;
@@ -15,6 +38,9 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [showNewPetForm, setShowNewPetForm] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<AppointmentHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [formData, setFormData] = useState({
@@ -28,6 +54,46 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
 
   const { pets, createPet } = usePets();
   const { slots } = useAvailableSlots(formData.appointment_date);
+
+  const fetchHistory = async (phone: string) => {
+    try {
+      setLoadingHistory(true);
+      const response = await fetch(`/api/appointments?phone=${encodeURIComponent(phone)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setHistory(data);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar histórico:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Concluído</Badge>;
+      case 'confirmed':
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Confirmado</Badge>;
+      case 'in_progress':
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 animate-pulse">Em Andamento</Badge>;
+      case 'cancelled':
+        return <Badge className="bg-red-100 text-red-800 border-red-200">Cancelado</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-800 border-gray-200">Pendente</Badge>;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+      case 'confirmed': return <CheckCircle className="h-5 w-5 text-blue-500" />;
+      case 'in_progress': return <Play className="h-5 w-5 text-yellow-500" />;
+      case 'cancelled': return <XCircle className="h-5 w-5 text-red-500" />;
+      default: return <Clock className="h-5 w-5 text-gray-500" />;
+    }
+  };
 
   // Fetch services when pet is selected
   useEffect(() => {
@@ -163,9 +229,76 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
       {/* Step 1: Pet and Service Selection */}
       {step === 1 && (
         <div>
-          {!selectedPet ? (
+          {showHistory ? (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Selecione o Pet</h2>
+              <div className="mb-6 flex items-center justify-between">
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  ← Voltar para seleção de pet
+                </button>
+                <h2 className="text-2xl font-bold text-gray-900">Histórico de Agendamentos</h2>
+              </div>
+
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                {loadingHistory ? (
+                  <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : history.length > 0 ? (
+                  history.map((app) => (
+                    <Card key={app.id} className="p-4 border-gray-100">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-blue-50 p-2 rounded-xl">
+                            {getStatusIcon(app.status)}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-900">{app.pet.name}</h4>
+                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(app.appointment_date).toLocaleDateString('pt-BR')} às {app.appointment_time}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {getStatusBadge(app.status)}
+                          <p className="text-[10px] text-gray-400">
+                            {app.services.map(s => s.name).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                    <p className="text-gray-500 italic">Nenhum agendamento encontrado para este pet/cliente.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : !selectedPet ? (
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Selecione o Pet</h2>
+                <button
+                  onClick={() => {
+                    // Try to use the first pet's phone if available to show some history
+                    const firstPetWithPhone = pets.find(p => p.owner_phone);
+                    if (firstPetWithPhone?.owner_phone) {
+                      fetchHistory(firstPetWithPhone.owner_phone);
+                      setShowHistory(true);
+                    } else {
+                      alert('Cadastre um pet primeiro para ver o histórico.');
+                    }
+                  }}
+                  className="flex items-center gap-2 text-sm font-semibold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors"
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  Meus Agendamentos
+                </button>
+              </div>
               <p className="text-gray-600 mb-6">Primeiro, selecione o pet para ver os valores dos serviços:</p>
               
               {showNewPetForm ? (
@@ -178,9 +311,23 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
                     {pets.map((pet: Pet) => (
                       <div
                         key={pet.id}
-                        className="p-4 rounded-xl border-2 border-gray-200 bg-white hover:border-blue-300 hover:shadow-md cursor-pointer transition-all duration-200"
+                        className="p-4 rounded-xl border-2 border-gray-200 bg-white hover:border-blue-300 hover:shadow-md cursor-pointer transition-all duration-200 group relative"
                         onClick={() => handlePetSelection(pet)}
                       >
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (pet.owner_phone) {
+                              fetchHistory(pet.owner_phone);
+                              setShowHistory(true);
+                            }
+                          }}
+                          className="absolute top-2 right-2 p-2 bg-white/90 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-50 text-blue-600"
+                          title="Ver histórico deste pet"
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                        </button>
+
                         {pet.photo_url && (
                           <img 
                             src={pet.photo_url} 
@@ -189,18 +336,8 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
                           />
                         )}
                         <h3 className="font-semibold text-gray-900">{pet.name}</h3>
-                        <p className="text-sm text-gray-600">{pet.breed || 'Raça não informada'}</p>
-                        <p className="text-sm text-gray-500 capitalize">Porte: {pet.size}</p>
-                        {pet.coat_condition && (
-                          <p className="text-xs text-blue-600 mt-2 capitalize">
-                            Pelos: {pet.coat_condition}
-                          </p>
-                        )}
-                        {pet.owner_name && (
-                          <p className="text-xs text-green-600 mt-1">
-                            Responsável: {pet.owner_name}
-                          </p>
-                        )}
+                        <p className="text-sm text-gray-600">{pet.breed || 'SRD'}</p>
+                        <p className="text-sm text-gray-500 capitalize">Porte {pet.size}</p>
                       </div>
                     ))}
                   </div>
