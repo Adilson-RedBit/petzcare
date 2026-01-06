@@ -167,6 +167,37 @@ app.patch("/api/appointments/:id/status", async (c) => {
   }
 });
 
+app.post("/api/appointments/:id/cancel-client", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const { phone } = await c.req.json();
+
+    if (!phone) return c.json({ error: "Telefone é obrigatório" }, 400);
+
+    // Verificar se o agendamento pertence a este telefone e se pode ser cancelado
+    const appointment = await c.env.DB.prepare(`
+      SELECT a.id, a.status 
+      FROM appointments a 
+      JOIN pets p ON a.pet_id = p.id 
+      WHERE a.id = ? AND p.owner_phone = ?
+    `).bind(id, phone).first() as any;
+
+    if (!appointment) {
+      return c.json({ error: "Agendamento não encontrado ou não pertence a este número" }, 404);
+    }
+
+    if (['em_andamento', 'concluido', 'cancelado'].includes(appointment.status)) {
+      return c.json({ error: `Não é possível cancelar um agendamento com status: ${appointment.status}` }, 400);
+    }
+
+    await c.env.DB.prepare("UPDATE appointments SET status = 'cancelado', updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(id).run();
+    
+    return c.json({ success: true, message: "Agendamento cancelado com sucesso" });
+  } catch (error) {
+    return c.json({ error: "Erro ao processar cancelamento" }, 500);
+  }
+});
+
 // Admin endpoints (simplificados)
 app.get("/api/admin/services", async (c) => {
   const result = await c.env.DB.prepare("SELECT * FROM services ORDER BY name").all();

@@ -40,6 +40,7 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   const [showNewPetForm, setShowNewPetForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<AppointmentHistory[]>([]);
+  const [historyPhone, setHistoryPhone] = useState<string>('');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
@@ -58,6 +59,7 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   const fetchHistory = async (phone: string) => {
     try {
       setLoadingHistory(true);
+      setHistoryPhone(phone);
       const response = await fetch(`/api/appointments?phone=${encodeURIComponent(phone)}`);
       if (response.ok) {
         const data = await response.json();
@@ -67,6 +69,29 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
       console.error('Erro ao buscar histórico:', error);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const handleCancelAppointment = async (id: number, petPhone: string) => {
+    if (!window.confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+
+    try {
+      const response = await fetch(`/api/appointments/${id}/cancel-client`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: petPhone }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao cancelar');
+      }
+
+      alert('Agendamento cancelado com sucesso!');
+      fetchHistory(petPhone); // Recarregar histórico
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao cancelar agendamento');
     }
   };
 
@@ -267,6 +292,14 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
                           <p className="text-[10px] text-gray-400">
                             {app.services.map(s => s.name).join(', ')}
                           </p>
+                          {(app.status === 'agendado' || app.status === 'confirmado') && (
+                            <button
+                              onClick={() => handleCancelAppointment(app.id, historyPhone)}
+                              className="mt-2 text-[10px] font-bold text-red-500 hover:text-red-700 underline"
+                            >
+                              Cancelar Agendamento
+                            </button>
+                          )}
                         </div>
                       </div>
                     </Card>
