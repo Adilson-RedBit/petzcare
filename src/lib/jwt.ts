@@ -18,10 +18,15 @@ export interface JWTPayload {
  */
 function getSecretKey(): string {
   // SECURITY: Nunca usar NEXT_PUBLIC_JWT_SECRET em produção - isso exporia a chave
-  const secret = process.env.JWT_SECRET;
+  // @ts-ignore
+  const secret = typeof process !== 'undefined' ? process.env.JWT_SECRET : null;
+  
   if (!secret) {
     // Em desenvolvimento, usar uma chave padrão apenas se não houver configuração
-    if (process.env.NODE_ENV === "development") {
+    // @ts-ignore
+    const isDev = typeof process !== 'undefined' ? process.env.NODE_ENV === "development" : true;
+    
+    if (isDev) {
       console.warn("⚠️ JWT_SECRET não configurado. Usando chave padrão de desenvolvimento.");
       return "dev-secret-key-for-local-development-only-K8j3mN9pQ2rT5vX8zA1bC4dE7fG0hI3jK6mN9pQ2rT5vX8zA1bC4dE7fG0hI";
     }

@@ -1,9 +1,10 @@
 import { Context, Next } from "hono";
+import { getCookie } from "hono/cookie";
 import { verifyJWT } from "../lib/jwt";
 
 export async function authMiddleware(c: Context, next: Next) {
   const authHeader = c.req.header("Authorization");
-  const cookieToken = c.req.cookie("auth_token");
+  const cookieToken = getCookie(c, "auth_token");
   
   const token = authHeader?.startsWith("Bearer ") 
     ? authHeader.substring(7) 
