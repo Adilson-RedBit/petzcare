@@ -151,19 +151,19 @@ export function useAppointments(date?: string) {
 }
 
 // Available time slots hook
-export function useAvailableSlots(date: string) {
+export function useAvailableSlots(date: string, duration: number = 60) {
   const [slots, setSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!date) return;
+    if (!date || !duration) return;
 
     const fetchSlots = async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchApi<{ slots: string[] }>(`/available-slots?date=${date}`);
+        const data = await fetchApi<{ slots: string[] }>(`/available-slots?date=${date}&duration=${duration}`);
         setSlots(data.slots || []);
       } catch (err) {
         console.error("Error fetching available slots:", err);
@@ -175,7 +175,7 @@ export function useAvailableSlots(date: string) {
     };
 
     fetchSlots();
-  }, [date]);
+  }, [date, duration]);
 
   return { slots, loading, error };
 }

@@ -54,7 +54,9 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   });
 
   const { pets, createPet } = usePets();
-  const { slots } = useAvailableSlots(formData.appointment_date);
+  
+  const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration_minutes, 0);
+  const { slots } = useAvailableSlots(formData.appointment_date, totalDuration || 60);
 
   const fetchHistory = async (phone: string) => {
     try {
@@ -212,7 +214,6 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   };
 
   const totalPrice = selectedServices.reduce((sum, service) => sum + service.price, 0);
-  const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration_minutes, 0);
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-6 lg:p-8">
