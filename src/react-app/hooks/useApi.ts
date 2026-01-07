@@ -163,10 +163,12 @@ export function useAvailableSlots(date: string) {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchApi<string[]>(`/available-slots?date=${date}`);
-        setSlots(data);
+        const data = await fetchApi<{ slots: string[] }>(`/available-slots?date=${date}`);
+        setSlots(data.slots || []);
       } catch (err) {
+        console.error("Error fetching available slots:", err);
         setError(err instanceof Error ? err.message : 'Failed to fetch available slots');
+        setSlots([]);
       } finally {
         setLoading(false);
       }
