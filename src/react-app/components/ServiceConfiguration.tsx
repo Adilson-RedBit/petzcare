@@ -1,20 +1,42 @@
 import { useState, useEffect } from 'react';
-import { Service, ServicePricing } from '@/shared/types';
-import { Plus, Edit, Trash2, Save, X, DollarSign, Clock, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Clock, Loader2, DollarSign, Check } from 'lucide-react';
+
+interface Service {
+  id: number;
+  name: string;
+  description?: string;
+  duration_minutes: number;
+  is_active: boolean;
+  price?: number;
+}
+
+interface ServicePricing {
+  service_id: number;
+  size: string;
+  base_price: number;
+}
 
 export default function ServiceConfiguration() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingService, setEditingService] = useState<Service | null>(null);
-  const [newService, setNewService] = useState<Partial<Service>>({
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [pricingData, setPricingData] = useState<{ [key: number]: { [key: string]: number } }>({});
+
+  const [newService, setNewService] = useState({
     name: '',
     description: '',
     duration_minutes: 60,
-    price: 0,
     is_active: true
   });
-  const [showNewForm, setShowNewForm] = useState(false);
-  const [pricingData, setPricingData] = useState<{ [key: number]: { [key: string]: number } }>({});
+
+  const sizes = [
+    { value: 'pequeno', label: 'Pequeno' },
+    { value: 'medio', label: 'Médio' },
+    { value: 'grande', label: 'Grande' }
+  ];
 
   useEffect(() => {
     fetchServices();
@@ -23,75 +45,95 @@ export default function ServiceConfiguration() {
 
   const fetchServices = async () => {
     try {
-      const response = await fetch('/api/admin/services');
-      const data = await response.json();
-      setServices(data);
+      const response = await fetch('/api/admin/services', {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setServices(data);
+      }
     } catch (error) {
-      console.error('Failed to fetch services:', error);
+      console.error('Erro ao carregar serviços:', error);
+      showMessage('error', 'Erro ao carregar serviços');
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchPricing = async () => {
     try {
-      const response = await fetch('/api/admin/service-pricing');
-      const data = await response.json();
-      
-      // Organize pricing by service and size
-      const organized: { [key: number]: { [key: string]: number } } = {};
-      data.forEach((price: ServicePricing) => {
-        if (!organized[price.service_id]) {
-          organized[price.service_id] = {};
-        }
-        organized[price.service_id][price.size] = price.base_price;
+      const response = await fetch('/api/admin/service-pricing', {
+        credentials: 'include'
       });
-      setPricingData(organized);
-      setLoading(false);
+      if (response.ok) {
+        const data = await response.json();
+        const organized: { [key: number]: { [key: string]: number } } = {};
+        data.forEach((price: ServicePricing) => {
+          if (!organized[price.service_id]) {
+            organized[price.service_id] = {};
+          }
+          organized[price.service_id][price.size] = price.base_price;
+        });
+        setPricingData(organized);
+      }
     } catch (error) {
-      console.error('Failed to fetch pricing:', error);
-      setLoading(false);
+      console.error('Erro ao carregar preços:', error);
     }
+  };
+
+  const showMessage = (type: 'success' | 'error', text: string) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 3000);
   };
 
   const handleCreateService = async () => {
     try {
+      setSaving(true);
       const response = await fetch('/api/admin/services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newService),
+        credentials: 'include'
       });
       
-      if (!response.ok) throw new Error('Failed to create service');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erro ao criar serviço');
+      }
       
-      await fetchServices();
-      setNewService({
-        name: '',
-        description: '',
-        duration_minutes: 60,
-        price: 0,
-        is_active: true
-      });
+      showMessage('success', 'Serviço criado com sucesso!');
+      setNewService({ name: '', description: '', duration_minutes: 60, is_active: true });
       setShowNewForm(false);
+      await fetchServices();
     } catch (error) {
-      alert('Erro ao criar serviço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      showMessage('error', error instanceof Error ? error.message : 'Erro ao criar serviço');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleUpdateService = async () => {
-    if (!editingService) return;
-    
+  const handleUpdateService = async (service: Service) => {
     try {
-      const response = await fetch(`/api/admin/services/${editingService.id}`, {
+      setSaving(true);
+      const response = await fetch(`/api/admin/services/${service.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingService),
+        body: JSON.stringify(service),
+        credentials: 'include'
       });
       
-      if (!response.ok) throw new Error('Failed to update service');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erro ao atualizar serviço');
+      }
       
+      showMessage('success', 'Serviço atualizado!');
+      setEditingId(null);
       await fetchServices();
-      setEditingService(null);
     } catch (error) {
-      alert('Erro ao atualizar serviço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      showMessage('error', error instanceof Error ? error.message : 'Erro ao atualizar');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -101,13 +143,17 @@ export default function ServiceConfiguration() {
     try {
       const response = await fetch(`/api/admin/services/${serviceId}`, {
         method: 'DELETE',
+        credentials: 'include'
       });
       
-      if (!response.ok) throw new Error('Failed to delete service');
+      if (!response.ok) {
+        throw new Error('Erro ao excluir');
+      }
       
+      showMessage('success', 'Serviço excluído!');
       await fetchServices();
     } catch (error) {
-      alert('Erro ao excluir serviço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      showMessage('error', error instanceof Error ? error.message : 'Erro ao excluir');
     }
   };
 
@@ -121,252 +167,268 @@ export default function ServiceConfiguration() {
           size,
           base_price: price
         }),
+        credentials: 'include'
       });
       
-      if (!response.ok) throw new Error('Failed to update pricing');
+      if (!response.ok) throw new Error('Erro ao atualizar preço');
       
       await fetchPricing();
     } catch (error) {
-      alert('Erro ao atualizar preço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
-    }
-  };
-
-  const toggleServiceStatus = async (service: Service) => {
-    try {
-      const response = await fetch(`/api/admin/services/${service.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...service, is_active: !service.is_active }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to toggle service status');
-      
-      await fetchServices();
-    } catch (error) {
-      alert('Erro ao alterar status: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      showMessage('error', 'Erro ao atualizar preço');
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Gerenciar Serviços</h3>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">Serviços</h3>
+          <p className="text-sm text-gray-600 mt-1">Configure os serviços, durações e preços</p>
+        </div>
         <button
-          onClick={() => setShowNewForm(true)}
+          onClick={() => setShowNewForm(!showNewForm)}
           className="flex items-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
         >
-          <Plus className="h-4 w-4" />
-          <span>Novo Serviço</span>
+          {showNewForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          <span>{showNewForm ? 'Cancelar' : 'Novo Serviço'}</span>
         </button>
       </div>
 
-      {/* New Service Form */}
-      {showNewForm && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-900 mb-4">Criar Novo Serviço</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-blue-900 mb-1">Nome</label>
-              <input
-                type="text"
-                value={newService.name || ''}
-                onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-                className="w-full p-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="Nome do serviço"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-blue-900 mb-1">Duração (minutos)</label>
-              <input
-                type="number"
-                value={newService.duration_minutes || 60}
-                onChange={(e) => setNewService({ ...newService, duration_minutes: parseInt(e.target.value) })}
-                className="w-full p-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-blue-900 mb-1">Descrição</label>
-              <textarea
-                value={newService.description || ''}
-                onChange={(e) => setNewService({ ...newService, description: e.target.value })}
-                rows={2}
-                className="w-full p-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="Descrição do serviço"
-              />
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={handleCreateService}
-              className="flex items-center space-x-1 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-            >
-              <Save className="h-4 w-4" />
-              <span>Salvar</span>
-            </button>
-            <button
-              onClick={() => setShowNewForm(false)}
-              className="flex items-center space-x-1 text-gray-600 px-3 py-1 rounded text-sm hover:text-gray-800"
-            >
-              <X className="h-4 w-4" />
-              <span>Cancelar</span>
-            </button>
-          </div>
+      {/* Mensagem de feedback */}
+      {message && (
+        <div className={`p-4 rounded-lg ${
+          message.type === 'success' 
+            ? 'bg-green-50 text-green-800 border border-green-200' 
+            : 'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          {message.text}
         </div>
       )}
 
-      {/* Services List */}
-      <div className="space-y-4">
-        {services.map((service) => (
-          <div key={service.id} className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className={`w-3 h-3 rounded-full ${service.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                {editingService?.id === service.id ? (
-                  <input
-                    type="text"
-                    value={editingService.name}
-                    onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
-                    className="text-lg font-semibold bg-transparent border-b border-blue-500 focus:outline-none"
-                  />
-                ) : (
-                  <h4 className="text-lg font-semibold text-gray-900">{service.name}</h4>
-                )}
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => toggleServiceStatus(service)}
-                  className={`px-3 py-1 rounded text-sm font-medium ${
-                    service.is_active 
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                  }`}
-                >
-                  {service.is_active ? 'Ativo' : 'Inativo'}
-                </button>
-                {editingService?.id === service.id ? (
-                  <div className="flex space-x-1">
-                    <button
-                      onClick={handleUpdateService}
-                      className="p-1 text-green-600 hover:bg-green-100 rounded"
-                    >
-                      <Save className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setEditingService(null)}
-                      className="p-1 text-gray-600 hover:bg-gray-100 rounded"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex space-x-1">
-                    <button
-                      onClick={() => setEditingService(service)}
-                      className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteService(service.id)}
-                      className="p-1 text-red-600 hover:bg-red-100 rounded"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
+      {/* Formulário novo serviço */}
+      {showNewForm && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h4 className="font-medium text-blue-900 mb-4">Criar Novo Serviço</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Serviço</label>
+              <input
+                type="text"
+                value={newService.name}
+                onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Ex: Banho, Tosa, Hidratação..."
+              />
             </div>
-
-            {editingService?.id === service.id ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <Clock className="inline h-4 w-4 mr-1" />
-                    Duração (minutos)
-                  </label>
-                  <input
-                    type="number"
-                    value={editingService.duration_minutes}
-                    onChange={(e) => setEditingService({ ...editingService, duration_minutes: parseInt(e.target.value) })}
-                    className="w-full p-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <FileText className="inline h-4 w-4 mr-1" />
-                    Descrição
-                  </label>
-                  <textarea
-                    value={editingService.description || ''}
-                    onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
-                    rows={2}
-                    className="w-full p-2 border border-gray-300 rounded-lg"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-gray-600 mb-4">
-                <p><Clock className="inline h-4 w-4 mr-1" />{service.duration_minutes} minutos</p>
-                {service.description && <p className="mt-1">{service.description}</p>}
-              </div>
-            )}
-
-            {/* Pricing by Size */}
-            <div className="border-t pt-4">
-              <h5 className="font-medium text-gray-900 mb-3 flex items-center">
-                <DollarSign className="h-4 w-4 mr-1" />
-                Preços por Porte
-              </h5>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {['pequeno', 'medio', 'grande'].map((size) => (
-                  <div key={size} className="bg-gray-50 p-3 rounded-lg">
-                    <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
-                      {size === 'medio' ? 'Médio' : size}
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">R$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={pricingData[service.id]?.[size] || 0}
-                        onChange={(e) => {
-                          const newPrice = parseFloat(e.target.value) || 0;
-                          setPricingData(prev => ({
-                            ...prev,
-                            [service.id]: {
-                              ...prev[service.id],
-                              [size]: newPrice
-                            }
-                          }));
-                        }}
-                        onBlur={() => {
-                          const newPrice = pricingData[service.id]?.[size] || 0;
-                          handleUpdatePricing(service.id, size, newPrice);
-                        }}
-                        className="flex-1 p-2 border border-gray-300 rounded text-sm"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                <Clock className="inline h-4 w-4 mr-1" />
+                Duração (minutos)
+              </label>
+              <input
+                type="number"
+                value={newService.duration_minutes}
+                onChange={(e) => setNewService({ ...newService, duration_minutes: parseInt(e.target.value) || 0 })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="15"
+                step="15"
+              />
+            </div>
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Descrição (opcional)</label>
+              <textarea
+                value={newService.description}
+                onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+                rows={2}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Descreva o serviço..."
+              />
             </div>
           </div>
-        ))}
+          <button
+            onClick={handleCreateService}
+            disabled={!newService.name || saving}
+            className="flex items-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            <span>{saving ? 'Salvando...' : 'Salvar Serviço'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Lista de serviços */}
+      <div className="space-y-4">
+        {services.map((service) => {
+          const isEditing = editingId === service.id;
+          const [editedService, setEditedService] = useState(service);
+
+          return (
+            <div key={service.id} className={`border rounded-lg p-6 transition-all ${
+              service.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-300'
+            }`}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={editedService.name}
+                        onChange={(e) => setEditedService({ ...editedService, name: e.target.value })}
+                        className="text-lg font-semibold w-full p-2 border border-blue-500 rounded-lg"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <Clock className="inline h-4 w-4 mr-1" />
+                            Duração (min)
+                          </label>
+                          <input
+                            type="number"
+                            value={editedService.duration_minutes}
+                            onChange={(e) => setEditedService({ ...editedService, duration_minutes: parseInt(e.target.value) || 0 })}
+                            className="w-full p-2 border border-gray-300 rounded-lg"
+                            min="15"
+                            step="15"
+                          />
+                        </div>
+                      </div>
+                      <textarea
+                        value={editedService.description || ''}
+                        onChange={(e) => setEditedService({ ...editedService, description: e.target.value })}
+                        rows={2}
+                        className="w-full p-2 border border-gray-300 rounded-lg"
+                        placeholder="Descrição..."
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h4 className="text-lg font-semibold text-gray-900">{service.name}</h4>
+                        {service.is_active ? (
+                          <span className="flex items-center space-x-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                            <Check className="h-3 w-3" />
+                            <span>Ativo</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+                            Inativo
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <span className="flex items-center">
+                          <Clock className="h-4 w-4 mr-1 text-blue-500" />
+                          {service.duration_minutes} minutos
+                        </span>
+                      </div>
+                      {service.description && (
+                        <p className="text-sm text-gray-600 mt-2">{service.description}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2 ml-4">
+                  {isEditing ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          handleUpdateService(editedService);
+                        }}
+                        disabled={saving}
+                        className="p-2 text-green-600 hover:bg-green-100 rounded-lg disabled:opacity-50"
+                      >
+                        {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditingId(service.id);
+                          setEditedService(service);
+                        }}
+                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"
+                      >
+                        <Edit2 className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteService(service.id)}
+                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Preços por porte */}
+              {!isEditing && (
+                <div className="border-t pt-4 mt-4">
+                  <h5 className="font-medium text-gray-900 mb-3 flex items-center">
+                    <DollarSign className="h-4 w-4 mr-1 text-green-600" />
+                    Preços por Porte
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {sizes.map((size) => (
+                      <div key={size.value} className="bg-gray-50 p-3 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {size.label}
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-500">R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={pricingData[service.id]?.[size.value] || 0}
+                            onChange={(e) => {
+                              const newPrice = parseFloat(e.target.value) || 0;
+                              setPricingData(prev => ({
+                                ...prev,
+                                [service.id]: {
+                                  ...prev[service.id],
+                                  [size.value]: newPrice
+                                }
+                              }));
+                            }}
+                            onBlur={() => {
+                              const newPrice = pricingData[service.id]?.[size.value] || 0;
+                              handleUpdatePricing(service.id, size.value, newPrice);
+                            }}
+                            className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {services.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p>Nenhum serviço cadastrado ainda.</p>
-          <p className="text-sm">Clique em "Novo Serviço" para começar.</p>
+        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+          <Clock className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-600 mb-2">Nenhum serviço cadastrado</p>
+          <p className="text-sm text-gray-500">Clique em "Novo Serviço" para começar</p>
         </div>
       )}
     </div>

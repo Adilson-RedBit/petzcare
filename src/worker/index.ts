@@ -293,8 +293,104 @@ app.get("/api/admin/business-config", async (c) => {
 });
 
 app.get("/api/admin/services", async (c) => {
-  const result = await c.env.DB.prepare("SELECT * FROM services ORDER BY name").all();
-  return c.json(result.results.map((r: any) => ({ ...r, is_active: Boolean(r.is_active) })));
+  try {
+    const result = await c.env.DB.prepare("SELECT * FROM services ORDER BY name").all();
+    return c.json(result.results.map((r: any) => ({ ...r, is_active: Boolean(r.is_active) })));
+  } catch (error: any) {
+    console.error("[Services] Error fetching:", error);
+    return c.json({ error: "Failed to fetch services", message: error.message }, 500);
+  }
+});
+
+app.post("/api/admin/services", async (c) => {
+  try {
+    const { name, description, duration_minutes, is_active } = await c.req.json();
+    
+    if (!name || !duration_minutes) {
+      return c.json({ error: "Nome e duração são obrigatórios" }, 400);
+    }
+    
+    const result = await c.env.DB.prepare(`
+      INSERT INTO services (name, description, duration_minutes, is_active)
+      VALUES (?, ?, ?, ?)
+      RETURNING *
+    `).bind(name, description || null, duration_minutes, is_active ? 1 : 0).first();
+    
+    return c.json({ ...result, is_active: Boolean((result as any).is_active) }, 201);
+  } catch (error: any) {
+    console.error("[Services] Error creating:", error);
+    return c.json({ error: "Erro ao criar serviço", message: error.message }, 500);
+  }
+});
+
+app.put("/api/admin/services/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const { name, description, duration_minutes, is_active } = await c.req.json();
+    
+    await c.env.DB.prepare(`
+      UPDATE services 
+      SET name = ?, description = ?, duration_minutes = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(name, description || null, duration_minutes, is_active ? 1 : 0, id).run();
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error("[Services] Error updating:", error);
+    return c.json({ error: "Erro ao atualizar serviço", message: error.message }, 500);
+  }
+});
+
+app.delete("/api/admin/services/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    await c.env.DB.prepare("DELETE FROM services WHERE id = ?").bind(id).run();
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error("[Services] Error deleting:", error);
+    return c.json({ error: "Erro ao excluir serviço", message: error.message }, 500);
+  }
+});
+
+app.get("/api/admin/service-pricing", async (c) => {
+  try {
+    const result = await c.env.DB.prepare("SELECT * FROM service_pricing ORDER BY service_id, size").all();
+    return c.json(result.results);
+  } catch (error: any) {
+    console.error("[Service Pricing] Error fetching:", error);
+    return c.json({ error: "Failed to fetch pricing", message: error.message }, 500);
+  }
+});
+
+app.post("/api/admin/service-pricing", async (c) => {
+  try {
+    const { service_id, size, base_price } = await c.req.json();
+    
+    // Verificar se já existe
+    const existing = await c.env.DB.prepare(
+      "SELECT id FROM service_pricing WHERE service_id = ? AND size = ?"
+    ).bind(service_id, size).first();
+    
+    if (existing) {
+      // Atualizar
+      await c.env.DB.prepare(`
+        UPDATE service_pricing 
+        SET base_price = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE service_id = ? AND size = ?
+      `).bind(base_price, service_id, size).run();
+    } else {
+      // Inserir
+      await c.env.DB.prepare(`
+        INSERT INTO service_pricing (service_id, size, base_price)
+        VALUES (?, ?, ?)
+      `).bind(service_id, size, base_price).run();
+    }
+    
+    return c.json({ success: true });
+  } catch (error: any) {
+    console.error("[Service Pricing] Error saving:", error);
+    return c.json({ error: "Erro ao salvar preço", message: error.message }, 500);
+  }
 });
 
 app.get("/api/admin/working-hours", async (c) => {
