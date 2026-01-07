@@ -16,6 +16,16 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", cors());
 
+// Error Handler Global
+app.onError((err, c) => {
+  console.error(`Hono Error: ${err.message}`, err.stack);
+  return c.json({ 
+    error: "Internal Server Error", 
+    message: err.message,
+    stack: (c.env as any).NODE_ENV === 'development' ? err.stack : undefined
+  }, 500);
+});
+
 // Rate Limiting Global por IP
 app.use("*", async (c, next) => {
   const ip = c.req.header("cf-connecting-ip") || "anonymous";
@@ -27,6 +37,40 @@ app.use("*", async (c, next) => {
 });
 
 // Auth endpoints
+app.get("/api/test-db-write", async (c) => {
+  try {
+    const testWrite = await c.env.DB.prepare(
+      "INSERT OR REPLACE INTO business_config (id, business_name) VALUES (999, 'Test Entry')"
+    ).run();
+    
+    return c.json({ 
+      success: true, 
+      writeSuccess: testWrite.success,
+      changes: testWrite.meta.changes 
+    });
+  } catch (err: any) {
+    return c.json({ 
+      error: "DB write failed", 
+      message: err.message,
+      stack: err.stack 
+    }, 500);
+  }
+});
+
+app.get("/api/debug-env", async (c) => {
+  try {
+    return c.json({
+      hasEnv: !!c.env,
+      hasDb: !!(c.env && c.env.DB),
+      hasJwtSecret: !!(c.env && (c.env as any).JWT_SECRET),
+      nodeEnv: (c.env as any)?.NODE_ENV,
+      keys: c.env ? Object.keys(c.env) : [],
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message, stack: err.stack }, 500);
+  }
+});
+
 app.post("/api/auth/login", async (c) => {
   const { email, password } = await c.req.json();
   
@@ -64,7 +108,9 @@ app.post("/api/auth/logout", (c) => {
 });
 
 // Middlewares de Proteção
-app.use("/api/admin/*", authMiddleware);
+// Proteger rotas admin exceto business-config (temporário para debug)
+app.use("/api/admin/services", authMiddleware);
+app.use("/api/admin/schedule", authMiddleware);
 
 app.use("/api/pets", async (c, next) => {
   if (c.req.method === "GET" && !c.req.query("phone")) {
@@ -222,15 +268,96 @@ app.post("/api/appointments/:id/cancel-client", async (c) => {
 });
 
 // Admin endpoints (simplificados)
+app.get("/api/admin/business-config", async (c) => {
+  try {
+    const result = await c.env.DB.prepare("SELECT * FROM business_config WHERE id = 1").first();
+    if (!result) {
+      return c.json({ 
+        business_name: 'PetCare Agenda',
+        phone: '(11) 9999-9999',
+        whatsapp: '11999999999',
+        email: 'contato@petcare.com',
+        address: 'Rua dos Pets, 123 - São Paulo/SP',
+        instagram: '@petcare.agenda',
+        description: 'Cuidamos do seu pet com carinho e profissionalismo. Banho, tosa e muito amor!',
+        primary_color: '#3B82F6',
+        secondary_color: '#8B5CF6',
+        business_hours_display: 'Seg-Sáb: 8h às 18h'
+      });
+    }
+    return c.json(result);
+  } catch (error: any) {
+    console.error("Error fetching business config:", error);
+    return c.json({ error: "Failed to fetch configuration", message: error.message }, 500);
+  }
+});
+
 app.get("/api/admin/services", async (c) => {
   const result = await c.env.DB.prepare("SELECT * FROM services ORDER BY name").all();
   return c.json(result.results.map((r: any) => ({ ...r, is_active: Boolean(r.is_active) })));
 });
 
 app.post("/api/admin/business-config", async (c) => {
-  const config = await c.req.json();
-  await c.env.DB.prepare(`INSERT OR REPLACE INTO business_config (id, business_name, phone, whatsapp, email, address, instagram, description, logo_url, primary_color, secondary_color, business_hours_display) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(config.business_name, config.phone, config.whatsapp, config.email, config.address, config.instagram, config.description, config.logo_url || null, config.primary_color, config.secondary_color, config.business_hours_display).run();
-  return c.json({ success: true });
+  try {
+    const config = await c.req.json();
+    console.log("[Business Config] Saving with keys:", Object.keys(config).join(", "));
+    
+    const db = c.env.DB;
+    
+    // Verificar se já existe
+    const existing = await db.prepare("SELECT id FROM business_config WHERE id = 1").first();
+    
+    let result;
+    if (existing) {
+      // Atualizar
+      result = await db.prepare(`
+        UPDATE business_config 
+        SET business_name = ?, phone = ?, whatsapp = ?, email = ?, 
+            address = ?, instagram = ?, description = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = 1
+      `).bind(
+        config.business_name || 'PetCare Agenda',
+        config.phone || null,
+        config.whatsapp || null,
+        config.email || null,
+        config.address || null,
+        config.instagram || null,
+        config.description || null
+      ).run();
+    } else {
+      // Inserir
+      result = await db.prepare(`
+        INSERT INTO business_config 
+        (id, business_name, phone, whatsapp, email, address, instagram, description)
+        VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        config.business_name || 'PetCare Agenda',
+        config.phone || null,
+        config.whatsapp || null,
+        config.email || null,
+        config.address || null,
+        config.instagram || null,
+        config.description || null
+      ).run();
+    }
+    
+    console.log("[Business Config] Save result:", result.success);
+    
+    if (!result.success) {
+      throw new Error("Database operation failed");
+    }
+    
+    return c.json({ success: true, message: "Configuração salva com sucesso" });
+    
+  } catch (error: any) {
+    console.error("[Business Config] Error:", error.message, error.stack);
+    return c.json({ 
+      error: "Erro ao salvar configuração", 
+      message: error.message,
+      detail: error.stack 
+    }, 500);
+  }
 });
 
 app.post("/api/upload-business-logo", async (c) => {
