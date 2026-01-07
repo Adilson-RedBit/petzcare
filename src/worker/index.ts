@@ -297,6 +297,55 @@ app.get("/api/admin/services", async (c) => {
   return c.json(result.results.map((r: any) => ({ ...r, is_active: Boolean(r.is_active) })));
 });
 
+app.get("/api/admin/working-hours", async (c) => {
+  try {
+    const result = await c.env.DB.prepare("SELECT * FROM working_hours ORDER BY day_of_week").all();
+    return c.json(result.results.map((r: any) => ({ ...r, is_active: Boolean(r.is_active) })));
+  } catch (error: any) {
+    console.error("[Working Hours] Error fetching:", error);
+    return c.json({ error: "Failed to fetch working hours", message: error.message }, 500);
+  }
+});
+
+app.post("/api/admin/working-hours", async (c) => {
+  try {
+    const { working_hours } = await c.req.json();
+    console.log("[Working Hours] Saving", working_hours.length, "entries");
+    
+    const db = c.env.DB;
+    
+    // Deletar todos os horários existentes
+    await db.prepare("DELETE FROM working_hours").run();
+    
+    // Inserir os novos horários
+    for (const wh of working_hours) {
+      await db.prepare(`
+        INSERT INTO working_hours 
+        (day_of_week, start_time, end_time, is_active, break_start, break_end)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
+        wh.day_of_week,
+        wh.start_time,
+        wh.end_time,
+        wh.is_active ? 1 : 0,
+        wh.break_start || null,
+        wh.break_end || null
+      ).run();
+    }
+    
+    console.log("[Working Hours] Saved successfully");
+    return c.json({ success: true, message: "Horários salvos com sucesso" });
+    
+  } catch (error: any) {
+    console.error("[Working Hours] Error saving:", error.message, error.stack);
+    return c.json({ 
+      error: "Erro ao salvar horários", 
+      message: error.message,
+      detail: error.stack 
+    }, 500);
+  }
+});
+
 app.post("/api/admin/business-config", async (c) => {
   try {
     const config = await c.req.json();
