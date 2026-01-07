@@ -521,4 +521,107 @@ app.get("/api/files/:folder/:file", async (c) => {
   return c.body(object.body, { headers });
 });
 
+// Get available time slots for a given date
+app.get("/api/available-slots", async (c) => {
+  try {
+    const date = c.req.query("date");
+    const durationMinutes = parseInt(c.req.query("duration") || "60");
+    
+    if (!date) {
+      return c.json({ error: "Date parameter is required" }, 400);
+    }
+
+    // Get day of week (0 = Sunday, 1 = Monday, etc.)
+    const dateObj = new Date(date + "T00:00:00");
+    const dayOfWeek = dateObj.getDay();
+
+    // Get working hours for this day
+    const workingHoursResult = await c.env.DB.prepare(
+      "SELECT * FROM working_hours WHERE day_of_week = ? AND is_active = 1"
+    ).bind(dayOfWeek).first() as any;
+
+    if (!workingHoursResult) {
+      return c.json({ slots: [] });
+    }
+
+    // Get existing appointments for this date with their service durations
+    const appointmentsResult = await c.env.DB.prepare(`
+      SELECT a.appointment_time, 
+             SUM(s.duration_minutes) as total_duration
+      FROM appointments a
+      JOIN appointment_services aps ON a.id = aps.appointment_id
+      JOIN services s ON aps.service_id = s.id
+      WHERE a.appointment_date = ?
+        AND a.status != 'cancelado'
+      GROUP BY a.id, a.appointment_time
+    `).bind(date).all();
+
+    const existingAppointments = appointmentsResult.results as any[];
+
+    // Parse working hours
+    const [startHour, startMin] = workingHoursResult.start_time.split(':').map(Number);
+    const [endHour, endMin] = workingHoursResult.end_time.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    // Parse break times if exists
+    let breakStartMinutes = 0;
+    let breakEndMinutes = 0;
+    if (workingHoursResult.break_start && workingHoursResult.break_end) {
+      const [breakStartH, breakStartM] = workingHoursResult.break_start.split(':').map(Number);
+      const [breakEndH, breakEndM] = workingHoursResult.break_end.split(':').map(Number);
+      breakStartMinutes = breakStartH * 60 + breakStartM;
+      breakEndMinutes = breakEndH * 60 + breakEndM;
+    }
+
+    // Generate all possible slots (every 30 minutes)
+    const slots: string[] = [];
+    const slotInterval = 30; // Check every 30 minutes
+
+    for (let currentMinutes = startMinutes; currentMinutes + durationMinutes <= endMinutes; currentMinutes += slotInterval) {
+      const slotEndMinutes = currentMinutes + durationMinutes;
+
+      // Skip if slot overlaps with break time
+      if (breakStartMinutes > 0 && breakEndMinutes > 0) {
+        if (
+          (currentMinutes >= breakStartMinutes && currentMinutes < breakEndMinutes) ||
+          (slotEndMinutes > breakStartMinutes && slotEndMinutes <= breakEndMinutes) ||
+          (currentMinutes < breakStartMinutes && slotEndMinutes > breakEndMinutes)
+        ) {
+          continue;
+        }
+      }
+
+      // Check if slot conflicts with existing appointments
+      const slotTimeStr = `${String(Math.floor(currentMinutes / 60)).padStart(2, '0')}:${String(currentMinutes % 60).padStart(2, '0')}`;
+      
+      let hasConflict = false;
+      for (const appt of existingAppointments) {
+        const [apptHour, apptMin] = appt.appointment_time.split(':').map(Number);
+        const apptStartMinutes = apptHour * 60 + apptMin;
+        const apptEndMinutes = apptStartMinutes + (appt.total_duration || 60);
+
+        // Check if there's overlap
+        if (
+          (currentMinutes >= apptStartMinutes && currentMinutes < apptEndMinutes) ||
+          (slotEndMinutes > apptStartMinutes && slotEndMinutes <= apptEndMinutes) ||
+          (currentMinutes < apptStartMinutes && slotEndMinutes > apptEndMinutes)
+        ) {
+          hasConflict = true;
+          break;
+        }
+      }
+
+      if (!hasConflict) {
+        slots.push(slotTimeStr);
+      }
+    }
+
+    return c.json({ slots });
+  } catch (error: any) {
+    console.error("Error fetching available slots:", error);
+    return c.json({ error: "Failed to fetch available slots", message: error.message }, 500);
+  }
+});
+
 export default app;
