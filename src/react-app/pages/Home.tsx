@@ -32,10 +32,10 @@ export default function Home() {
       if (!response.ok) throw new Error('Erro ao agendar');
 
       setSuccess(true);
-      setShowForm(false);
       
       setTimeout(() => {
         setSuccess(false);
+        setActiveTab('dados'); // Voltar para a aba inicial
         window.location.reload();
       }, 3000);
     } catch (error) {

@@ -110,7 +110,7 @@ export default function MyPets() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             {editingPet ? 'Editar Pet' : 'Cadastrar Novo Pet'}
           </h2>
-          <PetForm onSubmit={handleSavePet} initialData={editingPet || undefined} />
+          <PetForm onSubmit={handleSavePet} />
         </div>
       </div>
     );
@@ -156,7 +156,7 @@ export default function MyPets() {
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">{pet.name}</h3>
                   <p className="text-gray-600 text-sm">
-                    {pet.breed || 'SRD'} • {pet.size === 'small' ? 'Pequeno' : pet.size === 'medium' ? 'Médio' : 'Grande'}
+                    {pet.breed || 'SRD'} • {pet.size === 'pequeno' ? 'Pequeno' : pet.size === 'medio' ? 'Médio' : 'Grande'}
                   </p>
                 </div>
                 <div className="flex gap-2">

@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import { usePets, useAvailableSlots } from '@/react-app/hooks/useApi';
-import { CreateAppointment, Service, Pet, CreatePet } from '@/shared/types';
+import { CreateAppointment, Service, Pet } from '@/shared/types';
 import ServiceCard from './ServiceCard';
-import PetForm from './PetForm';
 import { 
   Calendar, 
   Clock, 
   User, 
-  Phone, 
-  Mail, 
   MessageSquare, 
   Check, 
   ClipboardList,
@@ -392,13 +389,6 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
                       </div>
                     ))}
                   </div>
-                  
-                  <button
-                    onClick={() => setShowNewPetForm(true)}
-                    className="w-full p-4 border-2 border-blue-500 rounded-xl text-blue-600 font-semibold bg-blue-50 hover:bg-blue-100 hover:border-blue-600 transition-colors shadow-sm"
-                  >
-                    + Cadastrar Novo Pet
-                  </button>
                 </div>
               )}
             </div>
