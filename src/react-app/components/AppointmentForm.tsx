@@ -37,7 +37,8 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   const [step, setStep] = useState(1);
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
-  const [showNewPetForm, setShowNewPetForm] = useState(false);
+  const [myPets, setMyPets] = useState<Pet[]>([]);
+  const [clientData, setClientData] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<AppointmentHistory[]>([]);
   const [historyPhone, setHistoryPhone] = useState<string>('');
@@ -47,16 +48,39 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   const [formData, setFormData] = useState({
     appointment_date: '',
     appointment_time: '',
-    owner_name: '',
-    owner_phone: '',
-    owner_email: '',
     notes: '',
   });
 
-  const { pets, createPet } = usePets();
+  const { createPet } = usePets();
   
   const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration_minutes, 0);
   const { slots } = useAvailableSlots(formData.appointment_date, totalDuration || 60);
+
+  // Carregar dados do cliente e seus pets do localStorage
+  useEffect(() => {
+    const savedData = localStorage.getItem('client_data');
+    if (savedData) {
+      const data = JSON.parse(savedData);
+      setClientData(data);
+      
+      // Buscar pets do cliente
+      if (data.phone) {
+        fetchMyPets(data.phone);
+      }
+    }
+  }, []);
+
+  const fetchMyPets = async (phone: string) => {
+    try {
+      const response = await fetch(`/api/pets?phone=${encodeURIComponent(phone)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMyPets(data);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar pets:', error);
+    }
+  };
 
   const fetchHistory = async (phone: string) => {
     try {
@@ -141,17 +165,6 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
     fetchServices();
   }, [selectedPet]);
 
-  const handleNewPet = async (petData: CreatePet) => {
-    try {
-      const newPet = await createPet(petData);
-      setSelectedPet(newPet);
-      setShowNewPetForm(false);
-      setStep(1); // Go back to services selection with pricing
-    } catch (error) {
-      alert('Erro ao cadastrar pet: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
-    }
-  };
-
   const handlePetSelection = (pet: Pet) => {
     setSelectedPet(pet);
     setSelectedServices([]); // Clear previously selected services
@@ -172,16 +185,16 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (selectedServices.length === 0 || !selectedPet) return;
+    if (selectedServices.length === 0 || !selectedPet || !clientData) return;
     
     const appointmentData: CreateAppointment = {
       service_ids: selectedServices.map(s => s.id),
       pet_id: selectedPet.id,
       appointment_date: formData.appointment_date,
       appointment_time: formData.appointment_time,
-      owner_name: selectedPet.owner_name || formData.owner_name,
-      owner_phone: selectedPet.owner_phone || formData.owner_phone,
-      owner_email: selectedPet.owner_email || formData.owner_email,
+      owner_name: clientData.name,
+      owner_phone: clientData.phone,
+      owner_email: clientData.email || '',
       notes: formData.notes,
     };
 
@@ -192,12 +205,7 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
     switch (stepNum) {
       case 1: return selectedServices.length > 0 && selectedPet;
       case 2: return formData.appointment_date && formData.appointment_time;
-      case 3: 
-        // If pet has owner data, only check for required fields when they are not filled from pet
-        if (selectedPet?.owner_name && selectedPet?.owner_phone) {
-          return true; // Pet already has owner info, no need for manual entry
-        }
-        return formData.owner_name && formData.owner_phone;
+      case 3: return clientData && clientData.name && clientData.phone;
       default: return false;
     }
   };
@@ -315,16 +323,14 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
           ) : !selectedPet ? (
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Selecione o Pet</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Selecione o Pet para Agendamento</h2>
                 <button
                   onClick={() => {
-                    // Try to use the first pet's phone if available to show some history
-                    const firstPetWithPhone = pets.find(p => p.owner_phone);
-                    if (firstPetWithPhone?.owner_phone) {
-                      fetchHistory(firstPetWithPhone.owner_phone);
+                    if (clientData?.phone) {
+                      fetchHistory(clientData.phone);
                       setShowHistory(true);
                     } else {
-                      alert('Cadastre um pet primeiro para ver o histórico.');
+                      alert('Cadastre seus dados primeiro na aba "Meus Dados".');
                     }
                   }}
                   className="flex items-center gap-2 text-sm font-semibold text-blue-600 bg-blue-50 px-4 py-2 rounded-xl hover:bg-blue-100 transition-colors"
@@ -333,16 +339,27 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
                   Meus Agendamentos
                 </button>
               </div>
-              <p className="text-gray-600 mb-6">Primeiro, selecione o pet para ver os valores dos serviços:</p>
-              
-              {showNewPetForm ? (
-                <div className="mb-6">
-                  <PetForm onSubmit={handleNewPet} onCancel={() => setShowNewPetForm(false)} />
+
+              {!clientData ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+                  <p className="text-yellow-800 text-lg mb-4">
+                    ⚠️ Por favor, cadastre seus dados primeiro na aba "Meus Dados"
+                  </p>
+                </div>
+              ) : myPets.length === 0 ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+                  <p className="text-yellow-800 text-lg mb-4">
+                    ⚠️ Você ainda não tem pets cadastrados
+                  </p>
+                  <p className="text-yellow-700">
+                    Cadastre seu primeiro pet na aba "Meus Pets" para poder agendar serviços.
+                  </p>
                 </div>
               ) : (
                 <div>
+                  <p className="text-gray-600 mb-6">Selecione um dos seus pets cadastrados:</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                    {pets.map((pet: Pet) => (
+                    {myPets.map((pet: Pet) => (
                       <div
                         key={pet.id}
                         className="p-4 rounded-xl border-2 border-gray-200 bg-white hover:border-blue-300 hover:shadow-md cursor-pointer transition-all duration-200 group relative"
@@ -540,71 +557,22 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
         </div>
       )}
 
-      {/* Step 3: Owner Information */}
+      {/* Step 3: Confirmation */}
       {step === 3 && (
         <form onSubmit={handleSubmit}>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            {selectedPet?.owner_name && selectedPet?.owner_phone 
-              ? 'Confirmação e Observações'
-              : 'Dados do Responsável'
-            }
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Confirmação do Agendamento</h2>
           
-          {selectedPet?.owner_name && selectedPet?.owner_phone ? (
-            <div className="mb-6">
-              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-                <h3 className="font-semibold text-green-900 mb-2">Dados do Responsável (já cadastrado)</h3>
-                <div className="text-sm text-green-700">
-                  <p><strong>Nome:</strong> {selectedPet.owner_name}</p>
-                  <p><strong>Telefone:</strong> {selectedPet.owner_phone}</p>
-                  {selectedPet.owner_email && <p><strong>E-mail:</strong> {selectedPet.owner_email}</p>}
-                </div>
+          <div className="mb-6">
+            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Seus Dados</h3>
+              <div className="text-sm text-blue-700">
+                <p><strong>Nome:</strong> {clientData?.name}</p>
+                <p><strong>Telefone:</strong> {clientData?.phone}</p>
+                {clientData?.email && <p><strong>E-mail:</strong> {clientData.email}</p>}
+                {clientData?.address && <p><strong>Endereço:</strong> {clientData.address}</p>}
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="inline h-4 w-4 mr-1" />
-                  Nome *
-                </label>
-                <input
-                  type="text"
-                  value={formData.owner_name}
-                  onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Phone className="inline h-4 w-4 mr-1" />
-                  Telefone *
-                </label>
-                <input
-                  type="tel"
-                  value={formData.owner_phone}
-                  onChange={(e) => setFormData({ ...formData, owner_phone: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
-              <div className="lg:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Mail className="inline h-4 w-4 mr-1" />
-                  E-mail (opcional)
-                </label>
-                <input
-                  type="email"
-                  value={formData.owner_email}
-                  onChange={(e) => setFormData({ ...formData, owner_email: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-          )}
+          </div>
 
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
