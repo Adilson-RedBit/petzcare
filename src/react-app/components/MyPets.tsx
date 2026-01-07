@@ -110,7 +110,13 @@ export default function MyPets() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             {editingPet ? 'Editar Pet' : 'Cadastrar Novo Pet'}
           </h2>
-          <PetForm onSubmit={handleSavePet} />
+          <PetForm 
+            onSubmit={handleSavePet} 
+            onCancel={() => {
+              setShowForm(false);
+              setEditingPet(null);
+            }}
+          />
         </div>
       </div>
     );

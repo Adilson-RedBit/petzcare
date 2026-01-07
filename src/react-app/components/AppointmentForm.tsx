@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { usePets, useAvailableSlots } from '@/react-app/hooks/useApi';
+import { useAvailableSlots } from '@/react-app/hooks/useApi';
 import { CreateAppointment, Service, Pet } from '@/shared/types';
 import ServiceCard from './ServiceCard';
 import { 
@@ -48,7 +48,7 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
     notes: '',
   });
 
-  const { createPet } = usePets();
+  // usePets não é mais necessário aqui pois os pets são gerenciados na aba "Meus Pets"
   
   const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration_minutes, 0);
   const { slots } = useAvailableSlots(formData.appointment_date, totalDuration || 60);
