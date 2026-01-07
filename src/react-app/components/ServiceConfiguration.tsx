@@ -21,6 +21,7 @@ export default function ServiceConfiguration() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const [pricingData, setPricingData] = useState<{ [key: number]: { [key: string]: number } }>({});
@@ -112,13 +113,15 @@ export default function ServiceConfiguration() {
     }
   };
 
-  const handleUpdateService = async (service: Service) => {
+  const handleUpdateService = async () => {
+    if (!editingService) return;
+    
     try {
       setSaving(true);
-      const response = await fetch(`/api/admin/services/${service.id}`, {
+      const response = await fetch(`/api/admin/services/${editingService.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(service),
+        body: JSON.stringify(editingService),
         credentials: 'include'
       });
       
@@ -129,6 +132,7 @@ export default function ServiceConfiguration() {
       
       showMessage('success', 'Serviço atualizado!');
       setEditingId(null);
+      setEditingService(null);
       await fetchServices();
     } catch (error) {
       showMessage('error', error instanceof Error ? error.message : 'Erro ao atualizar');
@@ -269,7 +273,6 @@ export default function ServiceConfiguration() {
       <div className="space-y-4">
         {services.map((service) => {
           const isEditing = editingId === service.id;
-          const [editedService, setEditedService] = useState(service);
 
           return (
             <div key={service.id} className={`border rounded-lg p-6 transition-all ${
@@ -277,12 +280,12 @@ export default function ServiceConfiguration() {
             }`}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  {isEditing ? (
+                  {isEditing && editingService ? (
                     <div className="space-y-3">
                       <input
                         type="text"
-                        value={editedService.name}
-                        onChange={(e) => setEditedService({ ...editedService, name: e.target.value })}
+                        value={editingService.name}
+                        onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
                         className="text-lg font-semibold w-full p-2 border border-blue-500 rounded-lg"
                       />
                       <div className="grid grid-cols-2 gap-3">
@@ -293,8 +296,8 @@ export default function ServiceConfiguration() {
                           </label>
                           <input
                             type="number"
-                            value={editedService.duration_minutes}
-                            onChange={(e) => setEditedService({ ...editedService, duration_minutes: parseInt(e.target.value) || 0 })}
+                            value={editingService.duration_minutes}
+                            onChange={(e) => setEditingService({ ...editingService, duration_minutes: parseInt(e.target.value) || 0 })}
                             className="w-full p-2 border border-gray-300 rounded-lg"
                             min="15"
                             step="15"
@@ -302,8 +305,8 @@ export default function ServiceConfiguration() {
                         </div>
                       </div>
                       <textarea
-                        value={editedService.description || ''}
-                        onChange={(e) => setEditedService({ ...editedService, description: e.target.value })}
+                        value={editingService.description || ''}
+                        onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
                         rows={2}
                         className="w-full p-2 border border-gray-300 rounded-lg"
                         placeholder="Descrição..."
@@ -341,16 +344,17 @@ export default function ServiceConfiguration() {
                   {isEditing ? (
                     <>
                       <button
-                        onClick={() => {
-                          handleUpdateService(editedService);
-                        }}
+                        onClick={handleUpdateService}
                         disabled={saving}
                         className="p-2 text-green-600 hover:bg-green-100 rounded-lg disabled:opacity-50"
                       >
                         {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                       </button>
                       <button
-                        onClick={() => setEditingId(null)}
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditingService(null);
+                        }}
                         className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                       >
                         <X className="h-5 w-5" />
@@ -361,7 +365,7 @@ export default function ServiceConfiguration() {
                       <button
                         onClick={() => {
                           setEditingId(service.id);
-                          setEditedService(service);
+                          setEditingService(service);
                         }}
                         className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"
                       >
