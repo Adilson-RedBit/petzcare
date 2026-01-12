@@ -186,7 +186,6 @@ export default function ScheduleConfiguration() {
       <div className="space-y-3">
         {daysOfWeek.map(day => {
           const workingHour = getWorkingHourForDay(day.value);
-          const isConfigured = workingHours.some(h => h.day_of_week === day.value);
           
           return (
             <div key={day.value} className={`border rounded-lg p-4 transition-all ${

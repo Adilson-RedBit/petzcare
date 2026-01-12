@@ -5,6 +5,7 @@ import { AppointmentWithDetails } from '@/shared/types';
 import ServiceConfiguration from '@/react-app/components/ServiceConfiguration';
 import ScheduleConfiguration from '@/react-app/components/ScheduleConfiguration';
 import BusinessConfiguration from '@/react-app/components/BusinessConfiguration';
+import ReferralLink from '@/react-app/components/ReferralLink';
 import { 
   Calendar, 
   Clock, 
@@ -33,7 +34,6 @@ export default function Professional() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [authUserEmail, setAuthUserEmail] = useState<string>('');
   const [storedEmail, setStoredEmail] = useState<string>('');
-  const [storedPassword, setStoredPassword] = useState<string>('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
@@ -55,6 +55,7 @@ export default function Professional() {
 
   const tabs = [
     { id: 'agenda', label: 'Agenda', icon: Calendar },
+    { id: 'link', label: 'Link Clientes', icon: User },
     { id: 'services', label: 'Serviços', icon: Wrench },
     { id: 'schedule', label: 'Horários', icon: Clock },
     { id: 'business', label: 'Negócio', icon: Briefcase },
@@ -63,7 +64,8 @@ export default function Professional() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setStoredEmail(localStorage.getItem('pro-login-email') || '');
-      setStoredPassword(localStorage.getItem('pro-login-password') || '');
+      // Password is stored but not displayed for security
+      localStorage.getItem('pro-login-password');
     }
   }, []);
 
@@ -119,7 +121,6 @@ export default function Professional() {
       localStorage.setItem('pro-login-password', newPassword);
     }
     setStoredEmail(emailLower);
-    setStoredPassword(newPassword);
     setCredMessage('Credenciais atualizadas. Use-as no próximo login.');
     setNewEmail('');
     setNewPassword('');
@@ -168,7 +169,6 @@ export default function Professional() {
       localStorage.setItem('pro-login-password', resetNewPassword);
     }
     setStoredEmail(emailLower);
-    setStoredPassword(resetNewPassword);
     setResetMessage('Senha atualizada. Faça login com a nova senha.');
     setResetCodeInput('');
     setResetNewPassword('');
@@ -405,30 +405,32 @@ export default function Professional() {
   return (
     <Layout>
       {/* Header */}
-      <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6 mb-4 md:mb-8">
+        <div className="flex flex-col space-y-4 md:space-y-0 md:flex-row md:items-center md:justify-between mb-4 md:mb-6">
           <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-xl">
-              <Settings className="h-6 w-6 text-white" />
+            <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 md:p-3 rounded-xl">
+              <Settings className="h-5 w-5 md:h-6 md:w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Painel Profissional</h1>
-              <p className="text-gray-600">Gerencie sua agenda e configurações</p>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900">Painel Profissional</h1>
+              <p className="text-sm md:text-base text-gray-600 hidden md:block">Gerencie sua agenda e configurações</p>
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            {authUserEmail && (
-              <span className="text-sm text-gray-600">{authUserEmail}</span>
-            )}
-            <button
-              onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-700 font-semibold"
-            >
-              Sair
-            </button>
-          {activeTab === 'agenda' && (
-              <div className="text-sm text-gray-600">
+          <div className="flex flex-col space-y-2 md:space-y-0 md:flex-row md:items-center md:space-x-4">
+            <div className="flex items-center justify-between md:justify-start md:space-x-4">
+              {authUserEmail && (
+                <span className="text-xs md:text-sm text-gray-600 truncate max-w-[150px] md:max-w-none">{authUserEmail}</span>
+              )}
+              <button
+                onClick={handleLogout}
+                className="text-xs md:text-sm text-red-600 hover:text-red-700 font-semibold"
+              >
+                Sair
+              </button>
+            </div>
+            {activeTab === 'agenda' && (
+              <div className="text-xs md:text-sm text-gray-600 bg-green-50 px-3 py-1 rounded-lg">
                 <span className="font-medium">Total do dia:</span>
                 <span className="ml-2 font-bold text-green-600">
                   R$ {appointments.reduce((sum, apt) => sum + (apt.total_price || 0), 0).toFixed(2)}
@@ -439,71 +441,75 @@ export default function Professional() {
         </div>
 
         {/* Solicitação de mudança de credenciais */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
-          <div className="flex items-start space-x-3">
-            <div className="bg-blue-500 text-white rounded-lg p-2">
-              <Briefcase className="h-5 w-5" />
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 md:p-4 mb-4">
+          <div className="flex flex-col md:flex-row md:items-start space-y-3 md:space-y-0 md:space-x-3">
+            <div className="bg-blue-500 text-white rounded-lg p-2 w-fit">
+              <Briefcase className="h-4 w-4 md:h-5 md:w-5" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-blue-900">Atualize seu login e senha</h3>
-              <p className="text-xs text-blue-700 mb-3">
-                Você entrou com as credenciais padrão. Defina novas credenciais para o próximo acesso.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="flex-1 space-y-3">
+              <div>
+                <h3 className="text-xs md:text-sm font-semibold text-blue-900">Atualize seu login e senha</h3>
+                <p className="text-xs text-blue-700">
+                  Você entrou com as credenciais padrão. Defina novas credenciais para o próximo acesso.
+                </p>
+              </div>
+              <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-3 md:gap-3">
                 <input
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="Novo email"
-                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs md:text-sm"
                 />
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Nova senha"
-                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs md:text-sm"
                 />
                 <input
                   type="password"
                   value={newPasswordConfirm}
                   onChange={(e) => setNewPasswordConfirm(e.target.value)}
                   placeholder="Confirmar nova senha"
-                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs md:text-sm"
                 />
               </div>
-              <div className="flex items-center justify-between mt-3">
+              <div className="flex flex-col space-y-2 md:flex-row md:items-center md:justify-between md:space-y-0">
                 <button
                   onClick={handleUpdateCredentials}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+                  className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-xs md:text-sm font-semibold hover:bg-blue-700 transition-colors"
                 >
                   Salvar novas credenciais
                 </button>
-                <span className="text-xs text-blue-600">
+                <span className="text-xs text-blue-600 text-center md:text-left">
                   Atual: {storedEmail || DEFAULT_EMAIL}
                 </span>
               </div>
               {credMessage && (
-                <p className="text-xs mt-2 text-blue-700">{credMessage}</p>
+                <p className="text-xs text-blue-700">{credMessage}</p>
               )}
             </div>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`flex items-center justify-center md:space-x-2 px-2 md:px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
               }`}
+              title={tab.label}
             >
-              <tab.icon className="h-4 w-4" />
-              <span>{tab.label}</span>
+              <tab.icon className="h-4 w-4 md:h-4 md:w-4" />
+              <span className="hidden md:inline text-sm">{tab.label}</span>
+              <span className="md:hidden text-[10px] mt-0.5">{tab.label.split(' ')[0]}</span>
             </button>
           ))}
         </div>
@@ -513,10 +519,10 @@ export default function Professional() {
       {activeTab === 'agenda' && (
         <div>
           {/* Date Selector for Agenda */}
-          <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
-            <div className="flex items-center space-x-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6 mb-4 md:mb-6">
+            <div className="flex flex-col space-y-3 md:flex-row md:items-center md:space-x-4 md:space-y-0">
+              <div className="flex-1">
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
                   <Calendar className="inline h-4 w-4 mr-1" />
                   Selecionar Data
                 </label>
@@ -524,11 +530,11 @@ export default function Professional() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
               
-              <div className="text-sm text-gray-600">
+              <div className="text-xs md:text-sm text-gray-600 bg-blue-50 px-3 py-2 rounded-lg text-center">
                 <span className="font-medium">{appointments.length}</span> agendamentos
               </div>
             </div>
@@ -548,44 +554,43 @@ export default function Professional() {
               {appointments.map((appointment: AppointmentWithDetails) => (
             <div key={appointment.id} className="bg-white rounded-2xl shadow-xl overflow-hidden">
               {/* Header */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 border-b border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="bg-gradient-to-r from-pink-400 to-purple-500 w-12 h-12 rounded-xl flex items-center justify-center">
-                      <PawPrint className="h-6 w-6 text-white" />
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-3 md:p-4 border-b border-gray-100">
+                <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
+                  <div className="flex items-center space-x-3 md:space-x-4">
+                    <div className="bg-gradient-to-r from-pink-400 to-purple-500 w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <PawPrint className="h-5 w-5 md:h-6 md:w-6 text-white" />
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{appointment.pet.name}</h3>
-                      <p className="text-sm text-gray-600">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base md:text-lg font-semibold text-gray-900 truncate">{appointment.pet.name}</h3>
+                      <p className="text-xs md:text-sm text-gray-600 truncate">
                         {appointment.pet.breed || 'SRD'} • Porte {appointment.pet.size}
                         {appointment.pet.age_years && ` • ${appointment.pet.age_years} anos`}
-                        {appointment.pet.weight_kg && ` • ${appointment.pet.weight_kg}kg`}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <div className="flex items-center space-x-2 text-lg font-semibold text-gray-900">
-                        <Clock className="h-5 w-5 text-blue-500" />
-                        <span>{appointment.appointment_time}</span>
+                  <div className="flex items-center justify-between md:justify-start md:space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Clock className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
+                      <div>
+                        <div className="text-base md:text-lg font-semibold text-gray-900">{appointment.appointment_time}</div>
+                        <p className="text-xs md:text-sm text-gray-600">
+                          {appointment.services.reduce((sum, s) => sum + s.duration_minutes, 0)} min
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-600">
-                        {appointment.services.reduce((sum, s) => sum + s.duration_minutes, 0)} minutos
-                      </p>
                     </div>
                     
-                    <div className={`px-4 py-2 rounded-full border text-sm font-medium flex items-center space-x-2 ${getStatusColor(appointment.status)}`}>
+                    <div className={`px-2 md:px-4 py-1 md:py-2 rounded-full border text-xs md:text-sm font-medium flex items-center space-x-1 md:space-x-2 ${getStatusColor(appointment.status)}`}>
                       {getStatusIcon(appointment.status)}
-                      <span>{getStatusText(appointment.status)}</span>
+                      <span className="hidden sm:inline">{getStatusText(appointment.status)}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="p-3 md:p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
                   {/* Pet Photo & Details */}
                   <div className="space-y-4">
                     {appointment.pet.photo_url && (
@@ -735,18 +740,18 @@ export default function Professional() {
                       </div>
                     )}
 
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
                       <a
                         href={`https://wa.me/55${appointment.owner_phone.replace(/\D/g, '')}?text=Olá! Sua consulta para ${appointment.pet.name} está confirmada para ${appointment.appointment_date} às ${appointment.appointment_time}.`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 bg-green-500 text-white text-center py-2 px-3 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
+                        className="flex-1 bg-green-500 text-white text-center py-2 px-3 rounded-lg text-xs md:text-sm font-medium hover:bg-green-600 transition-colors"
                       >
                         WhatsApp
                       </a>
                       <a
                         href={`tel:${appointment.owner_phone}`}
-                        className="flex-1 bg-blue-500 text-white text-center py-2 px-3 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
+                        className="flex-1 bg-blue-500 text-white text-center py-2 px-3 rounded-lg text-xs md:text-sm font-medium hover:bg-blue-600 transition-colors"
                       >
                         Ligar
                       </a>
@@ -761,20 +766,24 @@ export default function Professional() {
         </div>
       )}
 
+      {activeTab === 'link' && (
+        <ReferralLink />
+      )}
+
       {activeTab === 'services' && (
-        <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6">
           <ServiceConfiguration />
         </div>
       )}
 
       {activeTab === 'schedule' && (
-        <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6">
           <ScheduleConfiguration />
         </div>
       )}
 
       {activeTab === 'business' && (
-        <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6">
           <BusinessConfiguration />
         </div>
       )}

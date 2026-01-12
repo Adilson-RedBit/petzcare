@@ -71,7 +71,10 @@ export function usePets() {
 
   const createPet = async (petData: CreatePet) => {
     try {
-      const newPet = await fetchApi<Pet>('/pets', {
+      const professionalId = localStorage.getItem('professional_id');
+      const query = professionalId ? `?professional_id=${professionalId}` : '';
+      
+      const newPet = await fetchApi<Pet>(`/pets${query}`, {
         method: 'POST',
         body: JSON.stringify(petData),
       });
@@ -111,7 +114,10 @@ export function useAppointments(date?: string) {
 
   const createAppointment = async (appointmentData: CreateAppointment) => {
     try {
-      const newAppointment = await fetchApi<Appointment>('/appointments', {
+      const professionalId = localStorage.getItem('professional_id');
+      const query = professionalId ? `?professional_id=${professionalId}` : '';
+      
+      const newAppointment = await fetchApi<Appointment>(`/appointments${query}`, {
         method: 'POST',
         body: JSON.stringify(appointmentData),
       });
@@ -157,12 +163,19 @@ export function useAvailableSlots(date: string, duration: number = 60) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!date || !duration) return;
+    // Reset slots when date changes or is empty
+    if (!date || !duration) {
+      setSlots([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     const fetchSlots = async () => {
       try {
         setLoading(true);
         setError(null);
+        setSlots([]); // Clear previous slots
         const data = await fetchApi<{ slots: string[] }>(`/available-slots?date=${date}&duration=${duration}`);
         setSlots(data.slots || []);
       } catch (err) {

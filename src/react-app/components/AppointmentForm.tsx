@@ -51,7 +51,7 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
   // usePets não é mais necessário aqui pois os pets são gerenciados na aba "Meus Pets"
   
   const totalDuration = selectedServices.reduce((sum, service) => sum + service.duration_minutes, 0);
-  const { slots } = useAvailableSlots(formData.appointment_date, totalDuration || 60);
+  const { slots, loading: loadingSlots } = useAvailableSlots(formData.appointment_date, totalDuration || 60);
 
   // Carregar dados do cliente e seus pets do localStorage
   useEffect(() => {
@@ -516,15 +516,36 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
                 onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
-                disabled={!formData.appointment_date}
+                disabled={!formData.appointment_date || loadingSlots}
               >
-                <option value="">Selecione um horário</option>
+                <option value="">{loadingSlots ? 'Carregando horários...' : 'Selecione um horário'}</option>
                 {slots.map((time: string) => (
                   <option key={time} value={time}>{time}</option>
                 ))}
               </select>
-              {formData.appointment_date && slots.length === 0 && (
-                <p className="text-sm text-orange-600 mt-2">Nenhum horário disponível para esta data.</p>
+              
+              {loadingSlots && formData.appointment_date && (
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                  <p className="text-sm text-blue-800">Buscando horários disponíveis...</p>
+                </div>
+              )}
+              
+              {!loadingSlots && formData.appointment_date && slots.length === 0 && (
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800 font-medium">
+                    ⚠️ Nenhum horário disponível para esta data.
+                  </p>
+                  <p className="text-xs text-orange-600 mt-1">
+                    Este dia pode estar fechado ou todos os horários já estão ocupados. Tente outra data ou entre em contato.
+                  </p>
+                </div>
+              )}
+              
+              {!loadingSlots && formData.appointment_date && slots.length > 0 && (
+                <p className="mt-2 text-sm text-green-600">
+                  ✓ {slots.length} horário(s) disponível(is)
+                </p>
               )}
             </div>
           </div>

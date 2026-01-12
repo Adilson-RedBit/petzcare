@@ -1,46 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PetCare" />
+    <meta name="application-name" content="PetCare Agenda" />
+    <meta name="description" content="Sistema de agendamento para pet shops - banho, tosa e mais" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
+    
+    <!-- Open Graph -->
     <meta property="og:title" content="PetCare Agenda" />
-    <meta property="og:description" content="Sistema de agendamento para petshop - banho e tosa" />
-    <meta
-      property="og:image"
-      content="https://static.getmocha.com/og.png"
-      type="image/png"
-    />
-    <meta
-      property="og:url"
-      content="https://getmocha.com"
-    />
+    <meta property="og:description" content="Sistema de agendamento para pet shops - banho e tosa" />
     <meta property="og:type" content="website" />
-    <meta property="og:author" content="PetCare" />
     <meta property="og:site_name" content="PetCare Agenda" />
+    
+    <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:site" content="@petcare" />
     <meta property="twitter:title" content="PetCare Agenda" />
-    <meta property="twitter:description" content="Sistema de agendamento para petshop - banho e tosa" />
-    <meta
-      property="twitter:image"
-      content="https://static.getmocha.com/og.png"
-      type="image/png"
-    />
-    <link
-      rel="shortcut icon"
-      href="https://static.getmocha.com/favicon.ico"
-      type="image/x-icon"
-    />
-    <link
-      rel="apple-touch-icon"
-      sizes="180x180"
-      href="https://static.getmocha.com/apple-touch-icon.png"
-      type="image/png"
-    />
+    <meta property="twitter:description" content="Sistema de agendamento para pet shops - banho e tosa" />
+    
     <title>PetCare Agenda</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/react-app/main.tsx"></script>
+    
+    <!-- PWA Install Prompt -->
+    <script>
+      // Register Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registrado'))
+            .catch(err => console.log('Erro ao registrar Service Worker:', err));
+        });
+      }
+      
+      // Install Prompt
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Exibir banner de instalação customizado se necessário
+        const installBanner = document.getElementById('install-banner');
+        if (installBanner) {
+          installBanner.style.display = 'block';
+        }
+      });
+    </script>
   </body>
 </html>

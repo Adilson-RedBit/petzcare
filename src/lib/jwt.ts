@@ -3,6 +3,12 @@
  * Compatível com Cloudflare Workers e Next.js
  */
 
+// Declarações globais para TypeScript
+declare const btoa: (str: string) => string;
+declare const atob: (str: string) => string;
+declare const TextEncoder: any;
+declare const crypto: any;
+
 export interface JWTPayload {
   userId: number;
   email: string;
@@ -16,7 +22,7 @@ export interface JWTPayload {
  * Gera uma chave secreta para assinatura JWT
  * Em produção, use uma variável de ambiente
  */
-function getSecretKey(): string {
+export function getSecretKey(): string {
   // SECURITY: Nunca usar NEXT_PUBLIC_JWT_SECRET em produção - isso exporia a chave
   // @ts-ignore
   const secret = typeof process !== 'undefined' ? process.env.JWT_SECRET : null;

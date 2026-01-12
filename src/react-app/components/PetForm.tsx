@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CreatePet } from '@/shared/types';
-import { Heart, Weight, Calendar, FileText, User, Phone, Mail } from 'lucide-react';
+import { Heart, Weight, Calendar, FileText } from 'lucide-react';
 import PhotoUpload from './PhotoUpload';
 import CoatConditionSelector from './CoatConditionSelector';
 
@@ -149,57 +149,6 @@ export default function PetForm({ onSubmit, onCancel }: PetFormProps) {
               coat_notes: notes || ''
             })}
           />
-        </div>
-
-        {/* Owner Information Section */}
-        <div className="lg:col-span-2 mt-6 pt-6 border-t border-purple-200">
-          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <User className="h-5 w-5 text-purple-500 mr-2" />
-            Dados do Responsável
-          </h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <User className="inline h-4 w-4 mr-1" />
-                Nome do Responsável *
-              </label>
-              <input
-                type="text"
-                value={formData.owner_name}
-                onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Phone className="inline h-4 w-4 mr-1" />
-                Telefone *
-              </label>
-              <input
-                type="tel"
-                value={formData.owner_phone}
-                onChange={(e) => setFormData({ ...formData, owner_phone: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                required
-              />
-            </div>
-
-            <div className="lg:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Mail className="inline h-4 w-4 mr-1" />
-                E-mail (opcional)
-              </label>
-              <input
-                type="email"
-                value={formData.owner_email || ''}
-                onChange={(e) => setFormData({ ...formData, owner_email: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-          </div>
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">

@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { 
   Store, 
   Phone, 
+  MapPin, 
   Mail, 
-  MapPin,
+  Clock, 
   Instagram, 
   MessageCircle, 
   Save,
-  Loader2
+  Camera
 } from 'lucide-react';
 
 interface BusinessConfig {
@@ -18,6 +19,10 @@ interface BusinessConfig {
   address: string;
   instagram: string;
   description: string;
+  logo_url?: string;
+  primary_color: string;
+  secondary_color: string;
+  business_hours_display: string;
 }
 
 export default function BusinessConfiguration() {
@@ -28,12 +33,15 @@ export default function BusinessConfiguration() {
     email: 'contato@petcare.com',
     address: 'Rua dos Pets, 123 - São Paulo/SP',
     instagram: '@petcare.agenda',
-    description: 'Cuidamos do seu pet com carinho e profissionalismo. Banho, tosa e muito amor!'
+    description: 'Cuidamos do seu pet com carinho e profissionalismo. Banho, tosa e muito amor!',
+    logo_url: '',
+    primary_color: '#3B82F6',
+    secondary_color: '#8B5CF6',
+    business_hours_display: 'Seg-Sáb: 8h às 18h'
   });
-  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   useEffect(() => {
     fetchBusinessConfig();
@@ -44,10 +52,10 @@ export default function BusinessConfiguration() {
       const response = await fetch('/api/admin/business-config');
       if (response.ok) {
         const data = await response.json();
-        setConfig(prev => ({ ...prev, ...data }));
+        setConfig({ ...config, ...data });
       }
     } catch (error) {
-      console.error('Erro ao carregar configurações:', error);
+      console.error('Failed to fetch business config:', error);
     } finally {
       setLoading(false);
     }
@@ -56,59 +64,72 @@ export default function BusinessConfiguration() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      setMessage(null);
-      
       const response = await fetch('/api/admin/business-config', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
-        credentials: 'include'
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = 'Erro ao salvar';
-        
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.detail || errorData.message || errorData.error || errorMessage;
-        } catch {
-          errorMessage = errorText || errorMessage;
-        }
-        
-        throw new Error(errorMessage);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || errorData.error || 'Failed to save configuration');
       }
       
-      setMessage({ type: 'success', text: 'Configurações salvas com sucesso!' });
-      
-      // Notificar outras telas
+      alert('Configurações salvas com sucesso!');
+      // Notificar outras telas (ex.: cabeçalho) para recarregar a config
       window.dispatchEvent(new Event('business-config-updated'));
-      
-      // Limpar mensagem após 3 segundos
-      setTimeout(() => setMessage(null), 3000);
-      
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      setMessage({ type: 'error', text: errorMessage });
-      console.error('Erro ao salvar:', error);
+      alert('Erro ao salvar: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setLogoUploading(true);
+      // Para facilitar no modo local e evitar problemas de rota/armazenamento,
+      // salvamos o logo como Data URL (base64) diretamente no business_config.logo_url.
+      // Recomendação: use um arquivo de logo pequeno.
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Falha ao ler arquivo de logo'));
+        reader.readAsDataURL(file);
+      });
+
+      const updatedConfig = { ...config, logo_url: dataUrl };
+      setConfig(updatedConfig);
+
+      // Salvar automaticamente para que o logo apareça no cabeçalho
+      const saveResponse = await fetch('/api/admin/business-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedConfig),
+      });
+      if (!saveResponse.ok) throw new Error('Failed to save configuration');
+
+      window.dispatchEvent(new Event('business-config-updated'));
+    } catch (error) {
+      alert('Erro ao fazer upload da logo: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+    } finally {
+      setLogoUploading(false);
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Configurações do Negócio</h3>
@@ -117,36 +138,15 @@ export default function BusinessConfiguration() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center space-x-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center space-x-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
         >
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Salvando...</span>
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4" />
-              <span>Salvar</span>
-            </>
-          )}
+          <Save className="h-4 w-4" />
+          <span>{saving ? 'Salvando...' : 'Salvar'}</span>
         </button>
       </div>
 
-      {/* Mensagem de feedback */}
-      {message && (
-        <div className={`p-4 rounded-lg ${
-          message.type === 'success' 
-            ? 'bg-green-50 text-green-800 border border-green-200' 
-            : 'bg-red-50 text-red-800 border border-red-200'
-        }`}>
-          {message.text}
-        </div>
-      )}
-
-      {/* Formulário */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Informações Básicas */}
+        {/* Basic Information */}
         <div className="space-y-4">
           <h4 className="font-medium text-gray-900 flex items-center">
             <Store className="h-4 w-4 mr-2" />
@@ -154,15 +154,12 @@ export default function BusinessConfiguration() {
           </h4>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome do Negócio
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Negócio</label>
             <input
               type="text"
               value={config.business_name}
               onChange={(e) => setConfig({ ...config, business_name: e.target.value })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Nome do seu negócio"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -175,8 +172,7 @@ export default function BusinessConfiguration() {
               type="tel"
               value={config.phone}
               onChange={(e) => setConfig({ ...config, phone: e.target.value })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="(11) 9999-9999"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -189,18 +185,10 @@ export default function BusinessConfiguration() {
               type="tel"
               value={config.whatsapp}
               onChange={(e) => setConfig({ ...config, whatsapp: e.target.value.replace(/\D/g, '') })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               placeholder="11999999999"
             />
           </div>
-        </div>
-
-        {/* Contato e Localização */}
-        <div className="space-y-4">
-          <h4 className="font-medium text-gray-900 flex items-center">
-            <Mail className="h-4 w-4 mr-2" />
-            Contato e Redes
-          </h4>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -211,8 +199,20 @@ export default function BusinessConfiguration() {
               type="email"
               value={config.email}
               onChange={(e) => setConfig({ ...config, email: e.target.value })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="contato@exemplo.com"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              <MapPin className="inline h-4 w-4 mr-1" />
+              Endereço
+            </label>
+            <textarea
+              value={config.address}
+              onChange={(e) => setConfig({ ...config, address: e.target.value })}
+              rows={2}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -225,82 +225,96 @@ export default function BusinessConfiguration() {
               type="text"
               value={config.instagram}
               onChange={(e) => setConfig({ ...config, instagram: e.target.value })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               placeholder="@seuinstagram"
             />
+          </div>
+        </div>
+
+        {/* Visual Configuration */}
+        <div className="space-y-4">
+          <h4 className="font-medium text-gray-900 flex items-center">
+            <Camera className="h-4 w-4 mr-2" />
+            Logo
+          </h4>
+
+          {/* Logo Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Camera className="inline h-4 w-4 mr-1" />
+              Logo da Empresa
+            </label>
+            <div className="flex items-center space-x-4">
+              {config.logo_url && (
+                <img 
+                  src={config.logo_url} 
+                  alt="Logo"
+                  className="w-16 h-16 object-contain bg-gray-100 rounded-lg p-2"
+                />
+              )}
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  disabled={logoUploading}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {logoUploading && (
+                  <p className="text-xs text-gray-500 mt-1">Fazendo upload...</p>
+                )}
+              </div>
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              <MapPin className="inline h-4 w-4 mr-1" />
-              Endereço
+              <Clock className="inline h-4 w-4 mr-1" />
+              Horário de Funcionamento (exibição)
             </label>
+            <input
+              type="text"
+              value={config.business_hours_display}
+              onChange={(e) => setConfig({ ...config, business_hours_display: e.target.value })}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: Seg-Sáb: 8h às 18h"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição do Negócio</label>
             <textarea
-              value={config.address}
-              onChange={(e) => setConfig({ ...config, address: e.target.value })}
-              rows={3}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Endereço completo"
+              value={config.description}
+              onChange={(e) => setConfig({ ...config, description: e.target.value })}
+              rows={4}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="Descreva seu negócio e diferenciais..."
             />
           </div>
         </div>
       </div>
 
-      {/* Descrição */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Descrição do Negócio
-        </label>
-        <textarea
-          value={config.description}
-          onChange={(e) => setConfig({ ...config, description: e.target.value })}
-          rows={4}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Descreva seu negócio, serviços e diferenciais..."
-        />
-      </div>
-
       {/* Preview */}
       <div className="border-t pt-6">
         <h4 className="font-medium text-gray-900 mb-3">Preview</h4>
-        <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-100">
-          <div className="bg-white rounded-lg p-6 shadow-sm">
-            <div className="flex items-start space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Store className="h-8 w-8 text-white" />
-              </div>
-              <div className="flex-1">
-                <h5 className="text-xl font-bold text-gray-900 mb-2">
-                  {config.business_name || 'Nome do Negócio'}
-                </h5>
-                <p className="text-sm text-gray-600 mb-3">
-                  {config.description || 'Descrição do negócio'}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-500">
-                  <div className="flex items-center">
-                    <Phone className="h-4 w-4 mr-2 text-blue-500" />
-                    {config.phone || 'Telefone'}
-                  </div>
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 mr-2 text-blue-500" />
-                    {config.email || 'E-mail'}
-                  </div>
-                  <div className="flex items-center">
-                    <MessageCircle className="h-4 w-4 mr-2 text-green-500" />
-                    WhatsApp
-                  </div>
-                  <div className="flex items-center">
-                    <Instagram className="h-4 w-4 mr-2 text-pink-500" />
-                    {config.instagram || '@instagram'}
-                  </div>
+        <div className="bg-gray-50 p-6 rounded-lg border">
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="flex items-center space-x-3 mb-3">
+              {config.logo_url ? (
+                <img src={config.logo_url} alt="Logo" className="w-8 h-8 object-contain" />
+              ) : (
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-200">
+                  <Store className="h-4 w-4 text-white" />
                 </div>
-                <div className="mt-3 pt-3 border-t">
-                  <div className="flex items-start text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 mr-2 text-red-500 flex-shrink-0 mt-0.5" />
-                    <span>{config.address || 'Endereço'}</span>
-                  </div>
-                </div>
-              </div>
+              )}
+              <h5 className="font-semibold text-lg">
+                {config.business_name}
+              </h5>
+            </div>
+            <p className="text-sm text-gray-600 mb-2">{config.description}</p>
+            <div className="text-xs text-gray-500 space-y-1">
+              <p><Phone className="inline h-3 w-3 mr-1" />{config.phone}</p>
+              <p><Clock className="inline h-3 w-3 mr-1" />{config.business_hours_display}</p>
             </div>
           </div>
         </div>
