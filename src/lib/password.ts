@@ -1,0 +1,114 @@
+/**
+ * Hash de senha usando Web Crypto PBKDF2.
+ * Funciona nativamente em Cloudflare Workers e Node sem dependência externa.
+ *
+ * Formato armazenado: `pbkdf2$<iterations>$<salt_b64>$<hash_b64>`
+ *
+ * Substitui o uso de bcryptjs que estava ausente nas dependências e
+ * tinha problemas de compatibilidade em Workers. Iterations seguem
+ * recomendação OWASP 2024 (>=600k para SHA-256).
+ */
+
+const ITERATIONS = 600_000;
+const KEY_LENGTH = 32; // 256 bits
+const SALT_LENGTH = 16; // 128 bits
+
+function bufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToBuffer(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function pbkdf2(
+  password: string,
+  salt: Uint8Array,
+  iterations: number,
+  keyLength: number
+): Promise<ArrayBuffer> {
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"]
+  );
+
+  return crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: salt as BufferSource,
+      iterations,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    keyLength * 8
+  );
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const hash = await pbkdf2(password, salt, ITERATIONS, KEY_LENGTH);
+  return `pbkdf2$${ITERATIONS}$${bufferToBase64(salt.buffer)}$${bufferToBase64(hash)}`;
+}
+
+export async function verifyPassword(
+  password: string,
+  stored: string
+): Promise<boolean> {
+  try {
+    const parts = stored.split("$");
+    if (parts.length !== 4 || parts[0] !== "pbkdf2") {
+      // Suporte legado: se for um hash bcrypt antigo, força usuário a redefinir.
+      return false;
+    }
+    const iterations = parseInt(parts[1], 10);
+    const salt = base64ToBuffer(parts[2]);
+    const expectedHash = base64ToBuffer(parts[3]);
+    const computed = await pbkdf2(password, salt, iterations, expectedHash.length);
+    const computedBytes = new Uint8Array(computed);
+
+    if (computedBytes.length !== expectedHash.length) return false;
+
+    // Comparação constante para evitar timing attacks
+    let diff = 0;
+    for (let i = 0; i < computedBytes.length; i++) {
+      diff |= computedBytes[i] ^ expectedHash[i];
+    }
+    return diff === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Valida complexidade mínima de senha.
+ * Retorna mensagem de erro ou null se válida.
+ */
+export function validatePasswordComplexity(password: string): string | null {
+  if (!password || password.length < 8) {
+    return "Senha deve ter no mínimo 8 caracteres";
+  }
+  if (password.length > 256) {
+    return "Senha muito longa (máximo 256 caracteres)";
+  }
+  if (!/[A-Za-z]/.test(password)) {
+    return "Senha deve conter pelo menos uma letra";
+  }
+  if (!/[0-9]/.test(password)) {
+    return "Senha deve conter pelo menos um número";
+  }
+  return null;
+}

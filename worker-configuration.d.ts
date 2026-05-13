@@ -9,9 +9,10 @@ declare global {
   interface Env {
     DB: D1Database;
     R2_BUCKET: R2Bucket;
-    JWT_SECRET?: string;
+    JWT_SECRET: string;
     NODE_ENV?: string;
     WORKER_URL?: string;
+    ALLOWED_ORIGINS?: string; // CSV de origens permitidas no CORS
   }
 
   type File = any;

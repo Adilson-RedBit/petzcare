@@ -1,30 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyCode } from "@/lib/otp";
+import { proxyToWorker, workerUnavailableResponse } from "@/lib/workerProxy";
 
 export async function POST(request: NextRequest) {
   try {
-    const { identifier, code } = await request.json();
-
-    if (!identifier || !code) {
+    const body = await request.json();
+    if (!body?.identifier || !body?.code) {
       return NextResponse.json(
-        { error: "Identificador e código são obrigatórios" },
+        { error: "Identificador e código obrigatórios" },
         { status: 400 }
       );
     }
 
-    const isValid = verifyCode(identifier, code);
-
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Código inválido ou expirado" },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Código verificado com sucesso",
+    const workerResponse = await proxyToWorker(request, "/api/otp/verify", {
+      method: "POST",
+      body: JSON.stringify({ identifier: body.identifier, code: body.code }),
     });
+    if (!workerResponse) return workerUnavailableResponse();
+
+    const data = await workerResponse.json().catch(() => null);
+    return NextResponse.json(data, { status: workerResponse.status });
   } catch (error) {
     console.error("Erro ao verificar OTP:", error);
     return NextResponse.json(
@@ -33,4 +27,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -17,15 +17,16 @@ export interface JWTPayload {
  * Em produção, use uma variável de ambiente
  */
 function getSecretKey(): string {
-  // SECURITY: Nunca usar NEXT_PUBLIC_JWT_SECRET em produção - isso exporia a chave
+  // SECURITY: JWT_SECRET é OBRIGATÓRIO em qualquer ambiente.
+  // Não há fallback hardcoded (era vulnerabilidade C-7 da auditoria).
+  // Em dev, defina em .env.local. Em produção, em wrangler secrets / Pages env vars.
   const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    // Em desenvolvimento, usar uma chave padrão apenas se não houver configuração
-    if (process.env.NODE_ENV === "development") {
-      console.warn("⚠️ JWT_SECRET não configurado. Usando chave padrão de desenvolvimento.");
-      return "dev-secret-key-for-local-development-only-K8j3mN9pQ2rT5vX8zA1bC4dE7fG0hI3jK6mN9pQ2rT5vX8zA1bC4dE7fG0hI";
-    }
-    throw new Error('JWT_SECRET não configurado. Configure a variável de ambiente JWT_SECRET.');
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      'JWT_SECRET não configurado ou muito curto (mínimo 32 caracteres). ' +
+      'Configure a variável de ambiente. Em dev: crie .env.local com JWT_SECRET=<string aleatória>. ' +
+      'Gere com: openssl rand -hex 32'
+    );
   }
   return secret;
 }

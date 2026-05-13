@@ -1,16 +1,17 @@
-import { NextResponse } from "next/server";
-import { clearSession } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { clearSessionCookie } from "@/lib/auth";
+import { proxyToWorker } from "@/lib/workerProxy";
 
-export async function POST() {
+/**
+ * A-9: logout invalida a sessão no banco antes de apagar o cookie.
+ */
+export async function POST(request: NextRequest) {
   try {
-    await clearSession();
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Erro no logout:", error);
-    return NextResponse.json(
-      { error: "Erro ao fazer logout" },
-      { status: 500 }
-    );
+    // Tenta invalidar no worker (best-effort)
+    await proxyToWorker(request, "/api/auth/logout", { method: "POST" });
+  } catch {
+    /* ignore */
   }
+  await clearSessionCookie();
+  return NextResponse.json({ success: true });
 }
-
