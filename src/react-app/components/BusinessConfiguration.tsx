@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { 
-  Store, 
-  Phone, 
-  MapPin, 
-  Mail, 
-  Clock, 
-  Instagram, 
-  MessageCircle, 
+import { api, ApiError } from '@/react-app/lib/apiClient';
+import {
+  Store,
+  Phone,
+  MapPin,
+  Mail,
+  Clock,
+  Instagram,
+  MessageCircle,
   Save,
-  Camera
+  Camera,
 } from 'lucide-react';
 
 interface BusinessConfig {
@@ -49,11 +50,8 @@ export default function BusinessConfiguration() {
 
   const fetchBusinessConfig = async () => {
     try {
-      const response = await fetch('/api/admin/business-config');
-      if (response.ok) {
-        const data = await response.json();
-        setConfig({ ...config, ...data });
-      }
+      const data = await api.get<Partial<BusinessConfig>>('/admin/business-config');
+      if (data) setConfig({ ...config, ...data });
     } catch (error) {
       console.error('Failed to fetch business config:', error);
     } finally {
@@ -64,19 +62,12 @@ export default function BusinessConfiguration() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const response = await fetch('/api/admin/business-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
-      
-      if (!response.ok) throw new Error('Failed to save configuration');
-      
+      await api.post('/admin/business-config', config);
       alert('Configurações salvas com sucesso!');
-      // Notificar outras telas (ex.: cabeçalho) para recarregar a config
       window.dispatchEvent(new Event('business-config-updated'));
     } catch (error) {
-      alert('Erro ao salvar: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      const msg = error instanceof ApiError ? error.message : 'Erro desconhecido';
+      alert('Erro ao salvar: ' + msg);
     } finally {
       setSaving(false);
     }
@@ -101,17 +92,11 @@ export default function BusinessConfiguration() {
       const updatedConfig = { ...config, logo_url: dataUrl };
       setConfig(updatedConfig);
 
-      // Salvar automaticamente para que o logo apareça no cabeçalho
-      const saveResponse = await fetch('/api/admin/business-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedConfig),
-      });
-      if (!saveResponse.ok) throw new Error('Failed to save configuration');
-
+      await api.post('/admin/business-config', updatedConfig);
       window.dispatchEvent(new Event('business-config-updated'));
     } catch (error) {
-      alert('Erro ao fazer upload da logo: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      const msg = error instanceof ApiError ? error.message : 'Erro desconhecido';
+      alert('Erro ao fazer upload da logo: ' + msg);
     } finally {
       setLogoUploading(false);
     }

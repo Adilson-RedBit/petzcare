@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { api, ApiError } from '@/react-app/lib/apiClient';
 import { Clock, Calendar, Plus, X, Save, AlertCircle } from 'lucide-react';
 
 interface WorkingHours {
@@ -33,20 +34,18 @@ export default function ScheduleConfiguration() {
 
   const fetchWorkingHours = async () => {
     try {
-      const response = await fetch('/api/admin/working-hours');
-      if (response.ok) {
-        const data = await response.json();
+      const data = await api.get<WorkingHours[]>('/admin/working-hours');
+      if (data && data.length > 0) {
         setWorkingHours(data);
       } else {
-        // Initialize with default working hours if none exist
-        const defaultHours = daysOfWeek.slice(0, 6).map(day => ({
+        const defaultHours = daysOfWeek.slice(0, 6).map((day) => ({
           day_of_week: day.value,
           start_time: '08:00',
           end_time: '18:00',
           is_active: true,
           appointment_duration: 30,
           break_start: '12:00',
-          break_end: '13:00'
+          break_end: '13:00',
         }));
         setWorkingHours(defaultHours);
       }
@@ -60,18 +59,12 @@ export default function ScheduleConfiguration() {
   const handleSaveWorkingHours = async () => {
     try {
       setSaving(true);
-      const response = await fetch('/api/admin/working-hours', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ working_hours: workingHours }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to save working hours');
-      
+      await api.post('/admin/working-hours', { working_hours: workingHours });
       alert('Horários salvos com sucesso!');
       await fetchWorkingHours();
     } catch (error) {
-      alert('Erro ao salvar horários: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      const msg = error instanceof ApiError ? error.message : 'Erro desconhecido';
+      alert('Erro ao salvar horários: ' + msg);
     } finally {
       setSaving(false);
     }

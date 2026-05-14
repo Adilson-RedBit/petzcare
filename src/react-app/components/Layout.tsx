@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { Phone, Calendar, Home, Dog, Cat, PawPrint } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { api } from '@/react-app/lib/apiClient';
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,10 +20,8 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await fetch('/api/admin/business-config');
-        if (!res.ok) return;
-        const data = await res.json();
-        setConfig(data);
+        const data = await api.get<BusinessConfig>('/admin/business-config');
+        if (data) setConfig(data);
       } catch (error) {
         console.error('Erro ao carregar config do negócio', error);
       }

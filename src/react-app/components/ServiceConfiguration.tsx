@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Service, ServicePricing } from '@/shared/types';
+import { api, ApiError } from '@/react-app/lib/apiClient';
 import { Plus, Edit, Trash2, Save, X, DollarSign, Clock, FileText } from 'lucide-react';
 
 export default function ServiceConfiguration() {
@@ -21,10 +22,12 @@ export default function ServiceConfiguration() {
     fetchPricing();
   }, []);
 
+  const errMsg = (e: unknown) =>
+    e instanceof ApiError ? e.message : 'Erro desconhecido';
+
   const fetchServices = async () => {
     try {
-      const response = await fetch('/api/admin/services');
-      const data = await response.json();
+      const data = await api.get<Service[]>('/admin/services');
       setServices(data);
     } catch (error) {
       console.error('Failed to fetch services:', error);
@@ -33,117 +36,80 @@ export default function ServiceConfiguration() {
 
   const fetchPricing = async () => {
     try {
-      const response = await fetch('/api/admin/service-pricing');
-      const data = await response.json();
-      
-      // Organize pricing by service and size
+      const data = await api.get<ServicePricing[]>('/admin/service-pricing');
       const organized: { [key: number]: { [key: string]: number } } = {};
-      data.forEach((price: ServicePricing) => {
-        if (!organized[price.service_id]) {
-          organized[price.service_id] = {};
-        }
+      data.forEach((price) => {
+        if (!organized[price.service_id]) organized[price.service_id] = {};
         organized[price.service_id][price.size] = price.base_price;
       });
       setPricingData(organized);
-      setLoading(false);
     } catch (error) {
       console.error('Failed to fetch pricing:', error);
+    } finally {
       setLoading(false);
     }
   };
 
   const handleCreateService = async () => {
     try {
-      const response = await fetch('/api/admin/services', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newService),
-      });
-      
-      if (!response.ok) throw new Error('Failed to create service');
-      
+      await api.post('/admin/services', newService);
       await fetchServices();
       setNewService({
         name: '',
         description: '',
         duration_minutes: 60,
         price: 0,
-        is_active: true
+        is_active: true,
       });
       setShowNewForm(false);
     } catch (error) {
-      alert('Erro ao criar serviço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      alert('Erro ao criar serviço: ' + errMsg(error));
     }
   };
 
   const handleUpdateService = async () => {
     if (!editingService) return;
-    
     try {
-      const response = await fetch(`/api/admin/services/${editingService.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingService),
-      });
-      
-      if (!response.ok) throw new Error('Failed to update service');
-      
+      await api.put(`/admin/services/${editingService.id}`, editingService);
       await fetchServices();
       setEditingService(null);
     } catch (error) {
-      alert('Erro ao atualizar serviço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      alert('Erro ao atualizar serviço: ' + errMsg(error));
     }
   };
 
   const handleDeleteService = async (serviceId: number) => {
     if (!confirm('Tem certeza que deseja excluir este serviço?')) return;
-    
     try {
-      const response = await fetch(`/api/admin/services/${serviceId}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete service');
-      
+      await api.delete(`/admin/services/${serviceId}`);
       await fetchServices();
     } catch (error) {
-      alert('Erro ao excluir serviço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      alert('Erro ao excluir serviço: ' + errMsg(error));
     }
   };
 
   const handleUpdatePricing = async (serviceId: number, size: string, price: number) => {
     try {
-      const response = await fetch('/api/admin/service-pricing', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: serviceId,
-          size,
-          base_price: price
-        }),
+      await api.post('/admin/service-pricing', {
+        service_id: serviceId,
+        size,
+        base_price: price,
       });
-      
-      if (!response.ok) throw new Error('Failed to update pricing');
-      
       await fetchPricing();
     } catch (error) {
-      alert('Erro ao atualizar preço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      alert('Erro ao atualizar preço: ' + errMsg(error));
     }
   };
 
   const toggleServiceStatus = async (service: Service) => {
     try {
-      const response = await fetch(`/api/admin/services/${service.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...service, is_active: !service.is_active }),
+      await api.put(`/admin/services/${service.id}`, {
+        ...service,
+        is_active: !service.is_active,
       });
-      
-      if (!response.ok) throw new Error('Failed to toggle service status');
-      
       await fetchServices();
     } catch (error) {
-      alert('Erro ao alterar status: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      alert('Erro ao alterar status: ' + errMsg(error));
     }
   };
 

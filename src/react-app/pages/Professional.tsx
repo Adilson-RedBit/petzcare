@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Layout from '@/react-app/components/Layout';
 import { useAppointments } from '@/react-app/hooks/useApi';
+import { useAuth } from '@/react-app/hooks/useAuth';
+import { api, ApiError } from '@/react-app/lib/apiClient';
 import { AppointmentWithDetails } from '@/shared/types';
 import ServiceConfiguration from '@/react-app/components/ServiceConfiguration';
 import ScheduleConfiguration from '@/react-app/components/ScheduleConfiguration';
 import BusinessConfiguration from '@/react-app/components/BusinessConfiguration';
-import { 
-  Calendar, 
-  Clock, 
-  Phone, 
+import {
+  Calendar,
+  Clock,
+  Phone,
   Mail,
   PawPrint,
   CheckCircle,
@@ -20,32 +22,24 @@ import {
   MessageSquare,
   Settings,
   Briefcase,
-  Wrench
+  Wrench,
 } from 'lucide-react';
 
 export default function Professional() {
-  const DEFAULT_EMAIL = 'admin@petcare.com';
-  const DEFAULT_PASSWORD = 'admin123';
+  // Auth real via cookie httpOnly (sem senha no localStorage)
+  const { user, loading: authLoading, login, register, logout, error: authError } = useAuth();
 
+  // Login form
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [authUserEmail, setAuthUserEmail] = useState<string>('');
-  const [storedEmail, setStoredEmail] = useState<string>('');
-  const [storedPassword, setStoredPassword] = useState<string>('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
-  const [credMessage, setCredMessage] = useState<string | null>(null);
-  const [forgotMode, setForgotMode] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetCodeGenerated, setResetCodeGenerated] = useState<string | null>(null);
-  const [resetCodeInput, setResetCodeInput] = useState('');
-  const [resetNewPassword, setResetNewPassword] = useState('');
-  const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState('');
-  const [resetMessage, setResetMessage] = useState<string | null>(null);
-  const [sendingCode, setSendingCode] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  // Toggle entre login e cadastro (substitui o esquema antigo de "esqueci senha"
+  // que era client-side). Reset real de senha precisa ser implementado via OTP
+  // no backend — fica como TODO até integrar email/WhatsApp.
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [registerName, setRegisterName] = useState('');
 
   const [activeTab, setActiveTab] = useState('agenda');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -60,103 +54,44 @@ export default function Professional() {
     { id: 'business', label: 'Negócio', icon: Briefcase },
   ];
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setStoredEmail(localStorage.getItem('pro-login-email') || '');
-      setStoredPassword(localStorage.getItem('pro-login-password') || '');
+  const handleLogin = async () => {
+    setLocalError(null);
+    if (!authEmail.trim() || !authPassword) {
+      setLocalError('Preencha email e senha.');
+      return;
     }
-  }, []);
-
-  const handleLogin = () => {
-    const validEmail = (storedEmail || DEFAULT_EMAIL).toLowerCase();
-    const validPassword = storedPassword || DEFAULT_PASSWORD;
-
-    if (authEmail.trim().toLowerCase() === validEmail && authPassword === validPassword) {
-      setIsAuthenticated(true);
-      setAuthUserEmail(authEmail.trim().toLowerCase());
-      setAuthError(null);
-    } else {
-      setAuthError('Email ou senha inválidos.');
+    setLoggingIn(true);
+    try {
+      await login(authEmail.trim().toLowerCase(), authPassword);
+    } catch (err) {
+      setLocalError(err instanceof ApiError ? err.message : 'Erro ao fazer login.');
+    } finally {
+      setLoggingIn(false);
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setAuthUserEmail('');
+  const handleRegister = async () => {
+    setLocalError(null);
+    if (!authEmail.trim() || !authPassword || !registerName.trim()) {
+      setLocalError('Preencha nome, email e senha.');
+      return;
+    }
+    if (authPassword.length < 8) {
+      setLocalError('Senha deve ter no mínimo 8 caracteres.');
+      return;
+    }
+    setLoggingIn(true);
+    try {
+      await register(authEmail.trim().toLowerCase(), authPassword, registerName.trim());
+    } catch (err) {
+      setLocalError(err instanceof ApiError ? err.message : 'Erro ao criar conta.');
+    } finally {
+      setLoggingIn(false);
+    }
   };
 
-  const handleUpdateCredentials = () => {
-    setCredMessage(null);
-    if (!newEmail.trim() || !newPassword) {
-      setCredMessage('Preencha email e senha.');
-      return;
-    }
-    if (newPassword !== newPasswordConfirm) {
-      setCredMessage('As senhas não conferem.');
-      return;
-    }
-    const emailLower = newEmail.trim().toLowerCase();
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('pro-login-email', emailLower);
-      localStorage.setItem('pro-login-password', newPassword);
-    }
-    setStoredEmail(emailLower);
-    setStoredPassword(newPassword);
-    setCredMessage('Credenciais atualizadas. Use-as no próximo login.');
-    setNewEmail('');
-    setNewPassword('');
-    setNewPasswordConfirm('');
-  };
-
-  const generateResetCode = () => Math.floor(100000 + Math.random() * 900000).toString();
-
-  const handleSendResetCode = () => {
-    setResetMessage(null);
-    setResetCodeGenerated(null);
-    setSendingCode(true);
-
-    const currentEmail = storedEmail || DEFAULT_EMAIL;
-    if (!resetEmail.trim() || resetEmail.trim().toLowerCase() !== currentEmail.toLowerCase()) {
-      setResetMessage('Email não confere com o cadastrado.');
-      setSendingCode(false);
-      return;
-    }
-
-    const code = generateResetCode();
-    setResetCodeGenerated(code);
-    // Em ambiente de demo, exibimos o código na tela como se fosse enviado por email
-    setResetMessage(`Código enviado (demo): ${code}`);
-    setSendingCode(false);
-  };
-
-  const handleResetPassword = () => {
-    setResetMessage(null);
-    if (!resetCodeGenerated) {
-      setResetMessage('Envie o código primeiro.');
-      return;
-    }
-    if (resetCodeInput !== resetCodeGenerated) {
-      setResetMessage('Código incorreto.');
-      return;
-    }
-    if (!resetNewPassword || resetNewPassword !== resetNewPasswordConfirm) {
-      setResetMessage('As senhas não conferem.');
-      return;
-    }
-
-    const emailLower = resetEmail.trim().toLowerCase();
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('pro-login-email', emailLower);
-      localStorage.setItem('pro-login-password', resetNewPassword);
-    }
-    setStoredEmail(emailLower);
-    setStoredPassword(resetNewPassword);
-    setResetMessage('Senha atualizada. Faça login com a nova senha.');
-    setResetCodeInput('');
-    setResetNewPassword('');
-    setResetNewPasswordConfirm('');
-    setResetCodeGenerated(null);
-    setForgotMode(false);
+  const handleLogout = async () => {
+    await logout();
   };
 
   const handleStatusUpdate = async (appointmentId: number, newStatus: string) => {
@@ -173,25 +108,12 @@ export default function Professional() {
   const handleConfirmAppointment = async (appointmentId: number) => {
     try {
       setConfirmingAppointment(appointmentId);
-      
-      // Confirm appointment with notification
-      const response = await fetch(`/api/appointments/${appointmentId}/confirm`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Falha ao confirmar agendamento');
-      }
-      
-      // Update local state
+      await api.patch(`/appointments/${appointmentId}/confirm`);
       await updateAppointmentStatus(appointmentId, 'confirmado');
-      
-      alert('Agendamento confirmado! Cliente foi notificado via WhatsApp.');
+      alert('Agendamento confirmado! Cliente foi notificado.');
     } catch (error) {
-      alert('Erro ao confirmar agendamento: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      const msg = error instanceof ApiError ? error.message : 'Erro desconhecido';
+      alert('Erro ao confirmar agendamento: ' + msg);
     } finally {
       setConfirmingAppointment(null);
     }
@@ -238,7 +160,18 @@ export default function Professional() {
     { value: 'cancelado', label: 'Cancelado' },
   ];
 
-  if (!isAuthenticated) {
+  // Aguarda primeira validação de sessão
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!user) {
     return (
       <Layout>
         <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 mt-12">
@@ -248,127 +181,93 @@ export default function Professional() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Área do Profissional</h1>
-              <p className="text-gray-600 text-sm">Faça login para acessar o painel.</p>
+              <p className="text-gray-600 text-sm">
+                {mode === 'login' ? 'Faça login para acessar o painel.' : 'Crie sua conta de profissional.'}
+              </p>
             </div>
           </div>
 
-          {!forgotMode && (
-            <div className="space-y-4">
+          <div className="space-y-4">
+            {mode === 'register' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder={storedEmail || DEFAULT_EMAIL}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                <input
-                  type="password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Senha"
-                />
-              </div>
-              {authError && (
-                <p className="text-sm text-red-600">{authError}</p>
-              )}
-              <button
-                onClick={handleLogin}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-              >
-                Entrar
-              </button>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Credenciais padrão: {DEFAULT_EMAIL} / {DEFAULT_PASSWORD}</span>
-                <button
-                  onClick={() => {
-                    setForgotMode(true);
-                    setResetMessage(null);
-                  }}
-                  className="text-blue-600 hover:underline"
-                >
-                  Esqueceu a senha?
-                </button>
-              </div>
-            </div>
-          )}
-
-          {forgotMode && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-800">Recuperar senha</h3>
-                <button
-                  onClick={() => {
-                    setForgotMode(false);
-                    setResetMessage(null);
-                    setResetCodeGenerated(null);
-                  }}
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  Voltar para login
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email cadastrado</label>
-                <input
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder={storedEmail || DEFAULT_EMAIL}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleSendResetCode}
-                  disabled={sendingCode}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {sendingCode ? 'Enviando...' : 'Enviar código'}
-                </button>
-                {resetCodeGenerated && (
-                  <span className="text-xs text-blue-600">Código gerado (demo): {resetCodeGenerated}</span>
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                 <input
                   type="text"
-                  value={resetCodeInput}
-                  onChange={(e) => setResetCodeInput(e.target.value)}
-                  placeholder="Código recebido"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                />
-                <input
-                  type="password"
-                  value={resetNewPassword}
-                  onChange={(e) => setResetNewPassword(e.target.value)}
-                  placeholder="Nova senha"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                />
-                <input
-                  type="password"
-                  value={resetNewPasswordConfirm}
-                  onChange={(e) => setResetNewPasswordConfirm(e.target.value)}
-                  placeholder="Confirmar nova senha"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  value={registerName}
+                  onChange={(e) => setRegisterName(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Seu nome"
+                  autoComplete="name"
                 />
               </div>
-              {resetMessage && (
-                <p className="text-xs text-blue-700">{resetMessage}</p>
-              )}
-              <button
-                onClick={handleResetPassword}
-                className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
-              >
-                Redefinir senha
-              </button>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleRegister())}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="seu@email.com"
+                autoComplete="email"
+              />
             </div>
-          )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleRegister())}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder={mode === 'register' ? 'Mín. 8 caracteres' : 'Sua senha'}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              />
+            </div>
+
+            {(localError || authError) && (
+              <p className="text-sm text-red-600">{localError || authError}</p>
+            )}
+
+            <button
+              onClick={mode === 'login' ? handleLogin : handleRegister}
+              disabled={loggingIn}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loggingIn ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+            </button>
+
+            <div className="text-center text-sm text-gray-600">
+              {mode === 'login' ? (
+                <>
+                  Ainda não tem conta?{' '}
+                  <button
+                    onClick={() => {
+                      setMode('register');
+                      setLocalError(null);
+                    }}
+                    className="text-blue-600 hover:underline font-semibold"
+                  >
+                    Criar conta
+                  </button>
+                </>
+              ) : (
+                <>
+                  Já tem conta?{' '}
+                  <button
+                    onClick={() => {
+                      setMode('login');
+                      setLocalError(null);
+                    }}
+                    className="text-blue-600 hover:underline font-semibold"
+                  >
+                    Fazer login
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </Layout>
     );
@@ -400,16 +299,16 @@ export default function Professional() {
           </div>
           
           <div className="flex items-center space-x-4">
-            {authUserEmail && (
-              <span className="text-sm text-gray-600">{authUserEmail}</span>
-            )}
+            <span className="text-sm text-gray-600">
+              {user.name} <span className="text-gray-400">({user.email})</span>
+            </span>
             <button
               onClick={handleLogout}
               className="text-sm text-red-600 hover:text-red-700 font-semibold"
             >
               Sair
             </button>
-          {activeTab === 'agenda' && (
+            {activeTab === 'agenda' && (
               <div className="text-sm text-gray-600">
                 <span className="font-medium">Total do dia:</span>
                 <span className="ml-2 font-bold text-green-600">
@@ -417,58 +316,6 @@ export default function Professional() {
                 </span>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Solicitação de mudança de credenciais */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
-          <div className="flex items-start space-x-3">
-            <div className="bg-blue-500 text-white rounded-lg p-2">
-              <Briefcase className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-blue-900">Atualize seu login e senha</h3>
-              <p className="text-xs text-blue-700 mb-3">
-                Você entrou com as credenciais padrão. Defina novas credenciais para o próximo acesso.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="Novo email"
-                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                />
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Nova senha"
-                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                />
-                <input
-                  type="password"
-                  value={newPasswordConfirm}
-                  onChange={(e) => setNewPasswordConfirm(e.target.value)}
-                  placeholder="Confirmar nova senha"
-                  className="w-full p-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                />
-              </div>
-              <div className="flex items-center justify-between mt-3">
-                <button
-                  onClick={handleUpdateCredentials}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  Salvar novas credenciais
-                </button>
-                <span className="text-xs text-blue-600">
-                  Atual: {storedEmail || DEFAULT_EMAIL}
-                </span>
-              </div>
-              {credMessage && (
-                <p className="text-xs mt-2 text-blue-700">{credMessage}</p>
-              )}
-            </div>
           </div>
         </div>
 

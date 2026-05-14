@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import Layout from '@/react-app/components/Layout';
 import AppointmentForm from '@/react-app/components/AppointmentForm';
 import NotificationBanner, { useNotifications } from '@/react-app/components/NotificationBanner';
+import { api, ApiError } from '@/react-app/lib/apiClient';
 import { CreateAppointment } from '@/shared/types';
-import { 
-  Calendar, 
-  CheckCircle, 
+import {
+  Calendar,
+  CheckCircle,
   Heart,
-  Sparkles
+  Sparkles,
 } from 'lucide-react';
 
 export default function Home() {
@@ -29,24 +30,16 @@ export default function Home() {
   const handleAppointmentSubmit = async (appointmentData: CreateAppointment) => {
     try {
       setLoading(true);
-      
-      const response = await fetch('/api/appointments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(appointmentData),
-      });
-
-      if (!response.ok) throw new Error('Erro ao agendar');
-
+      await api.post('/appointments', appointmentData);
       setSuccess(true);
       setShowForm(false);
-      
       setTimeout(() => {
         setSuccess(false);
         window.location.reload();
       }, 3000);
     } catch (error) {
-      alert('Erro ao agendar: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
+      const msg = error instanceof ApiError ? error.message : 'Erro desconhecido';
+      alert('Erro ao agendar: ' + msg);
     } finally {
       setLoading(false);
     }

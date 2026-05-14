@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usePets, useAvailableSlots } from '@/react-app/hooks/useApi';
+import { api } from '@/react-app/lib/apiClient';
 import { CreateAppointment, Service, Pet, CreatePet } from '@/shared/types';
 import ServiceCard from './ServiceCard';
 import PetForm from './PetForm';
@@ -34,9 +35,8 @@ export default function AppointmentForm({ onSubmit, loading }: AppointmentFormPr
     const fetchServices = async () => {
       try {
         setLoadingServices(true);
-        const url = selectedPet ? `/api/services?pet_id=${selectedPet.id}` : '/api/services';
-        const response = await fetch(url);
-        const data = await response.json();
+        const path = selectedPet ? `/services?pet_id=${selectedPet.id}` : '/services';
+        const data = await api.get<Service[]>(path);
         setServices(data);
       } catch (error) {
         console.error('Failed to fetch services:', error);

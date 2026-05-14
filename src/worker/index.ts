@@ -16,6 +16,7 @@
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { setCookie, deleteCookie } from "hono/cookie";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 
@@ -133,9 +134,18 @@ app.post("/api/auth/login", zValidator("json", LoginSchema), async (c) => {
     c.req.raw
   );
 
+  // Setar cookie httpOnly — front não precisa armazenar o JWT em JS.
+  setCookie(c, "auth_token", jwt, {
+    httpOnly: true,
+    secure: c.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+
   return c.json({
     success: true,
-    jwt,
+    jwt, // mantido pra clientes mobile/cross-domain que usarão Authorization Bearer
     user: { id: user.id, email: user.email, name: user.name, role: user.role },
   });
 });
@@ -177,6 +187,14 @@ app.post("/api/auth/register", zValidator("json", RegisterSchema), async (c) => 
 
   const { jwt } = await createSession(c.env.DB, inserted, c.req.raw);
 
+  setCookie(c, "auth_token", jwt, {
+    httpOnly: true,
+    secure: c.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+
   return c.json(
     {
       success: true,
@@ -196,6 +214,7 @@ app.post("/api/auth/logout", async (c) => {
       await invalidateSession(c.env.DB, validated.tokenHash);
     }
   }
+  deleteCookie(c, "auth_token", { path: "/" });
   return c.json({ success: true });
 });
 

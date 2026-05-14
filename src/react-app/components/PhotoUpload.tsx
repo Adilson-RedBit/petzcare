@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { api, ApiError } from '@/react-app/lib/apiClient';
 import { Camera, Upload, X, AlertCircle } from 'lucide-react';
 
 interface PhotoUploadProps {
@@ -34,20 +35,14 @@ export default function PhotoUpload({ onPhotoUpload, currentPhotoUrl, onRemovePh
     try {
       const formData = new FormData();
       formData.append('photo', file);
-
-      const response = await fetch('/api/upload-pet-photo', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao enviar imagem');
-      }
-
-      const { photoUrl } = await response.json();
+      const { photoUrl } = await api.post<{ photoUrl: string }>(
+        '/upload-pet-photo',
+        formData
+      );
       onPhotoUpload(photoUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao enviar imagem');
+      const msg = err instanceof ApiError ? err.message : 'Erro ao enviar imagem';
+      setError(msg);
     } finally {
       setUploading(false);
     }
