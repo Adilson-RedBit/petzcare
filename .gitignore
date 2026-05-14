@@ -41,3 +41,13 @@ lerna-debug.log*
 *.sln
 *.sw?
 .cursor/
+
+# Repos aninhados e pastas de editor
+petzcare/
+CB_petzcare/
+.cursor/
+.gemini/
+node_modules/
+**/node_modules/
+dist/
+.wrangler/
