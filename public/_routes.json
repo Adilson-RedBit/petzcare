@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "include": ["/api/*"],
+  "exclude": ["/assets/*", "/_redirects", "/_headers", "/_routes.json", "/index.html", "/favicon.ico", "/robots.txt"]
+}

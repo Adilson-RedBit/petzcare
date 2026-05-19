@@ -32,8 +32,8 @@ import {
   hashPassword,
   verifyPassword,
   validatePasswordComplexity,
-} from "../lib/password";
-import { checkRateLimit, RATE_LIMIT_CONFIGS } from "../lib/rateLimit";
+} from "./lib/password";
+import { checkRateLimit, RATE_LIMIT_CONFIGS } from "./lib/rateLimit";
 
 import {
   createSession,

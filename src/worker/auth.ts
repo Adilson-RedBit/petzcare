@@ -19,6 +19,6 @@ export {
   hashPassword,
   verifyPassword,
   validatePasswordComplexity,
-} from "../lib/password";
+} from "./lib/password";
 
 export { requireAuth } from "./middleware/authMiddleware";

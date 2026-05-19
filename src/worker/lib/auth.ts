@@ -6,7 +6,7 @@
  * - validateSession: garante que JWT existe E sessão ativa no banco
  */
 
-import { generateJWT, verifyJWT, hashToken, JWTPayload } from "../../lib/jwt";
+import { generateJWT, verifyJWT, hashToken, JWTPayload } from "./jwt";
 
 export interface Session {
   user: {

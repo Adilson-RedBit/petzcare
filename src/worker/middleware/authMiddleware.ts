@@ -11,7 +11,7 @@
 
 import type { Context, MiddlewareHandler } from "hono";
 import { extractToken, validateSession } from "../lib/auth";
-import type { JWTPayload } from "../../lib/jwt";
+import type { JWTPayload } from "../lib/jwt";
 
 declare module "hono" {
   interface ContextVariableMap {

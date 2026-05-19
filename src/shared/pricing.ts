@@ -1,7 +1,6 @@
 /**
  * Lógica de precificação compartilhada entre front e worker.
- * Antes estava duplicada em src/worker/index.ts (linhas 43-48 e 228-233).
- * Resolve A-6 da auditoria.
+ * Resolve A-6 da auditoria (antes estava duplicada em src/worker/index.ts).
  */
 
 export type CoatCondition = 'excelente' | 'bom' | 'regular' | 'ruim';
@@ -14,19 +13,38 @@ export const COAT_MULTIPLIERS: Record<CoatCondition, number> = {
 } as const;
 
 /**
- * Calcula o preço final de um serviço considerando a condição do pelo.
- * Sempre arredonda para 2 casas decimais.
+ * Aplica o multiplicador da condição da pelagem ao preço base.
+ * Arredonda para 2 casas decimais.
  */
-export function calculatePrice(basePrice: number, coatCondition?: CoatCondition | null): number {
+export function applyCoatMultiplier(
+  basePrice: number,
+  coatCondition?: CoatCondition | string | null,
+): number {
   const safeBase = Number(basePrice) || 0;
-  const multiplier = coatCondition ? (COAT_MULTIPLIERS[coatCondition] ?? 1.0) : 1.0;
-  return Math.round(safeBase * multiplier * 100) / 100;
+  const mult =
+    coatCondition && coatCondition in COAT_MULTIPLIERS
+      ? COAT_MULTIPLIERS[coatCondition as CoatCondition]
+      : 1.0;
+  return Math.round(safeBase * mult * 100) / 100;
 }
 
 /**
- * Soma preços de uma lista de serviços já calculados.
+ * Soma o preço total de vários serviços para o mesmo coat condition.
  */
-export function sumPrices(prices: number[]): number {
-  const total = prices.reduce((sum, p) => sum + (Number(p) || 0), 0);
+export function calculateTotalPrice(
+  serviceBasePrices: number[],
+  coatCondition?: CoatCondition | string | null,
+): number {
+  const total = serviceBasePrices.reduce(
+    (sum, base) => sum + applyCoatMultiplier(base, coatCondition),
+    0,
+  );
   return Math.round(total * 100) / 100;
 }
+
+// ---- Aliases legados (compatibilidade) -------------------------------------
+export const calculatePrice = applyCoatMultiplier;
+export const sumPrices = (prices: number[]): number => {
+  const total = prices.reduce((sum, p) => sum + (Number(p) || 0), 0);
+  return Math.round(total * 100) / 100;
+};
