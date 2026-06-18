@@ -143,12 +143,12 @@ export default function ScheduleConfiguration() {
         </button>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start space-x-3">
-          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-          <div className="text-sm text-yellow-800">
-            <p className="font-medium mb-1">Dica:</p>
-            <p>Configure a duração padrão dos agendamentos e intervalos de almoço. Os horários disponíveis serão calculados automaticamente baseados nessas configurações.</p>
+          <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-1">Como funciona:</p>
+            <p>Os slots são gerados a cada 30 minutos dentro do horário de funcionamento. A duração de cada atendimento é definida em <strong>Serviços</strong> e o sistema bloqueia automaticamente os slots ocupados — sem risco de overbook.</p>
           </div>
         </div>
       </div>
@@ -208,7 +208,7 @@ export default function ScheduleConfiguration() {
               </div>
 
               {isConfigured && workingHour.is_active && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       <Clock className="inline h-4 w-4 mr-1" />
@@ -221,7 +221,7 @@ export default function ScheduleConfiguration() {
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       <Clock className="inline h-4 w-4 mr-1" />
@@ -234,23 +234,7 @@ export default function ScheduleConfiguration() {
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Duração Agendamento
-                    </label>
-                    <select
-                      value={workingHour.appointment_duration}
-                      onChange={(e) => updateWorkingHour(day.value, 'appointment_duration', parseInt(e.target.value))}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value={15}>15 minutos</option>
-                      <option value={30}>30 minutos</option>
-                      <option value={45}>45 minutos</option>
-                      <option value={60}>60 minutos</option>
-                    </select>
-                  </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Intervalo Almoço

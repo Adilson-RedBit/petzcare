@@ -29,7 +29,7 @@ export function requireAuth(options?: {
       return c.json({ error: "Não autenticado" }, 401);
     }
 
-    const result = await validateSession(c.env.DB, token);
+    const result = await validateSession(c.env.DB, token, c.env.JWT_SECRET);
     if (!result) {
       return c.json({ error: "Sessão inválida ou expirada" }, 401);
     }
@@ -58,6 +58,6 @@ export async function getOptionalUser(
 ): Promise<JWTPayload | null> {
   const token = extractToken(c.req.raw);
   if (!token) return null;
-  const result = await validateSession(c.env.DB, token);
+  const result = await validateSession(c.env.DB, token, c.env.JWT_SECRET);
   return result?.payload ?? null;
 }

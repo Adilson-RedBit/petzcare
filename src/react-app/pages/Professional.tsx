@@ -2,11 +2,14 @@ import { useState } from 'react';
 import Layout from '@/react-app/components/Layout';
 import { useAppointments } from '@/react-app/hooks/useApi';
 import { useAuth } from '@/react-app/hooks/useAuth';
+import { useAppointmentNotification } from '@/react-app/hooks/useAppointmentNotification';
 import { api, ApiError } from '@/react-app/lib/apiClient';
 import { AppointmentWithDetails } from '@/shared/types';
 import ServiceConfiguration from '@/react-app/components/ServiceConfiguration';
 import ScheduleConfiguration from '@/react-app/components/ScheduleConfiguration';
 import BusinessConfiguration from '@/react-app/components/BusinessConfiguration';
+import CrmPanel from '@/react-app/components/CrmPanel';
+import BookingLinkBanner from '@/react-app/components/BookingLinkBanner';
 import {
   Calendar,
   Clock,
@@ -23,6 +26,11 @@ import {
   Settings,
   Briefcase,
   Wrench,
+  Link,
+  Copy,
+  Bell,
+  BellOff,
+  Users,
 } from 'lucide-react';
 
 export default function Professional() {
@@ -35,11 +43,13 @@ export default function Professional() {
   const [loggingIn, setLoggingIn] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // Toggle entre login e cadastro (substitui o esquema antigo de "esqueci senha"
-  // que era client-side). Reset real de senha precisa ser implementado via OTP
-  // no backend — fica como TODO até integrar email/WhatsApp.
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [registerName, setRegisterName] = useState('');
+
+  // Reset de senha
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState('agenda');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -47,12 +57,32 @@ export default function Professional() {
   const [updatingStatus, setUpdatingStatus] = useState<number | null>(null);
   const [confirmingAppointment, setConfirmingAppointment] = useState<number | null>(null);
 
+  const { permission: notifPerm, requestPermission } = useAppointmentNotification(!!user);
+
   const tabs = [
     { id: 'agenda', label: 'Agenda', icon: Calendar },
+    { id: 'clients', label: 'Clientes', icon: Users },
     { id: 'services', label: 'Serviços', icon: Wrench },
     { id: 'schedule', label: 'Horários', icon: Clock },
     { id: 'business', label: 'Negócio', icon: Briefcase },
   ];
+
+  const handleForgotPassword = async () => {
+    setLocalError(null);
+    if (!resetEmail.trim()) {
+      setLocalError('Informe seu email.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await api.post('/auth/reset-request', { email: resetEmail.trim().toLowerCase() });
+      setResetSent(true);
+    } catch (err) {
+      setLocalError(err instanceof ApiError ? err.message : 'Erro ao enviar email.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     setLocalError(null);
@@ -172,6 +202,11 @@ export default function Professional() {
   }
 
   if (!user) {
+    const modeLabel =
+      mode === 'login' ? 'Faça login para acessar o painel.' :
+      mode === 'register' ? 'Crie sua conta de profissional.' :
+      'Redefinição de senha';
+
     return (
       <Layout>
         <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 mt-12">
@@ -181,93 +216,141 @@ export default function Professional() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Área do Profissional</h1>
-              <p className="text-gray-600 text-sm">
-                {mode === 'login' ? 'Faça login para acessar o painel.' : 'Crie sua conta de profissional.'}
-              </p>
+              <p className="text-gray-600 text-sm">{modeLabel}</p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            {mode === 'register' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                <input
-                  type="text"
-                  value={registerName}
-                  onChange={(e) => setRegisterName(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Seu nome"
-                  autoComplete="name"
-                />
-              </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleRegister())}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="seu@email.com"
-                autoComplete="email"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-              <input
-                type="password"
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleRegister())}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder={mode === 'register' ? 'Mín. 8 caracteres' : 'Sua senha'}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              />
-            </div>
-
-            {(localError || authError) && (
-              <p className="text-sm text-red-600">{localError || authError}</p>
-            )}
-
-            <button
-              onClick={mode === 'login' ? handleLogin : handleRegister}
-              disabled={loggingIn}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loggingIn ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
-            </button>
-
-            <div className="text-center text-sm text-gray-600">
-              {mode === 'login' ? (
-                <>
-                  Ainda não tem conta?{' '}
-                  <button
-                    onClick={() => {
-                      setMode('register');
-                      setLocalError(null);
-                    }}
-                    className="text-blue-600 hover:underline font-semibold"
-                  >
-                    Criar conta
-                  </button>
-                </>
+          {/* Modo: Esqueci minha senha */}
+          {mode === 'forgot' && (
+            <div className="space-y-4">
+              {resetSent ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+                  Email enviado! Verifique sua caixa de entrada e clique no link para redefinir sua senha.
+                </div>
               ) : (
                 <>
-                  Já tem conta?{' '}
+                  <p className="text-sm text-gray-600">
+                    Informe o email da sua conta e enviaremos um link para redefinir a senha.
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleForgotPassword()}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="seu@email.com"
+                      autoComplete="email"
+                    />
+                  </div>
+                  {localError && <p className="text-sm text-red-600">{localError}</p>}
                   <button
-                    onClick={() => {
-                      setMode('login');
-                      setLocalError(null);
-                    }}
-                    className="text-blue-600 hover:underline font-semibold"
+                    onClick={handleForgotPassword}
+                    disabled={resetLoading}
+                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
-                    Fazer login
+                    {resetLoading ? 'Enviando…' : 'Enviar link'}
                   </button>
                 </>
               )}
+              <div className="text-center text-sm">
+                <button
+                  onClick={() => { setMode('login'); setLocalError(null); setResetSent(false); }}
+                  className="text-blue-600 hover:underline font-semibold"
+                >
+                  ← Voltar para o login
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Modo: Login / Cadastro */}
+          {mode !== 'forgot' && (
+            <div className="space-y-4">
+              {mode === 'register' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                  <input
+                    type="text"
+                    value={registerName}
+                    onChange={(e) => setRegisterName(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Seu nome"
+                    autoComplete="name"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleRegister())}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="seu@email.com"
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (mode === 'login' ? handleLogin() : handleRegister())}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder={mode === 'register' ? 'Mín. 8 caracteres' : 'Sua senha'}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                />
+              </div>
+
+              {(localError || authError) && (
+                <p className="text-sm text-red-600">{localError || authError}</p>
+              )}
+
+              <button
+                onClick={mode === 'login' ? handleLogin : handleRegister}
+                disabled={loggingIn}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loggingIn ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+              </button>
+
+              <div className="flex flex-col items-center gap-2 text-sm text-gray-600">
+                {mode === 'login' ? (
+                  <>
+                    <div>
+                      Ainda não tem conta?{' '}
+                      <button
+                        onClick={() => { setMode('register'); setLocalError(null); }}
+                        className="text-blue-600 hover:underline font-semibold"
+                      >
+                        Criar conta
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => { setMode('forgot'); setLocalError(null); setResetEmail(authEmail); }}
+                      className="text-gray-400 hover:text-gray-600 hover:underline text-xs"
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </>
+                ) : (
+                  <div>
+                    Já tem conta?{' '}
+                    <button
+                      onClick={() => { setMode('login'); setLocalError(null); }}
+                      className="text-blue-600 hover:underline font-semibold"
+                    >
+                      Fazer login
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </Layout>
     );
@@ -298,10 +381,30 @@ export default function Professional() {
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">
+          <div className="flex items-center space-x-3 flex-wrap gap-y-2">
+            <span className="text-sm text-gray-600 hidden sm:inline">
               {user.name} <span className="text-gray-400">({user.email})</span>
             </span>
+
+            {/* Botão de notificações */}
+            {notifPerm === 'granted' ? (
+              <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                <Bell className="h-3 w-3" /> Ativas
+              </span>
+            ) : notifPerm === 'denied' ? (
+              <span className="flex items-center gap-1 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+                <BellOff className="h-3 w-3" /> Bloqueadas
+              </span>
+            ) : (
+              <button
+                onClick={requestPermission}
+                className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-full transition-colors"
+                title="Ativar alertas sonoros de novos agendamentos"
+              >
+                <Bell className="h-3 w-3" /> Ativar alertas
+              </button>
+            )}
+
             <button
               onClick={handleLogout}
               className="text-sm text-red-600 hover:text-red-700 font-semibold"
@@ -319,19 +422,22 @@ export default function Professional() {
           </div>
         </div>
 
+        {/* Booking link */}
+        <BookingLinkBanner />
+
         {/* Navigation Tabs */}
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 bg-gray-100 p-1 rounded-lg">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`flex items-center justify-center space-x-2 px-3 py-2 rounded-lg font-medium transition-all ${
                 activeTab === tab.id
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
               }`}
             >
-              <tab.icon className="h-4 w-4" />
+              <tab.icon className="h-4 w-4 shrink-0" />
               <span>{tab.label}</span>
             </button>
           ))}
@@ -341,6 +447,40 @@ export default function Professional() {
       {/* Tab Content */}
       {activeTab === 'agenda' && (
         <div>
+          {/* Link de Agendamento */}
+          <div className="bg-white rounded-2xl shadow-xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="bg-blue-100 p-2 rounded-lg shrink-0">
+                <Link className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-700">Link de Agendamento</p>
+                <p className="text-xs text-gray-400 truncate">Envie este link para seus clientes agendarem</p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText('https://petzcare.org/');
+                  alert('Link copiado!');
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Copy className="h-4 w-4" />
+                Copiar link
+              </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent('Olá! Clique no link abaixo para agendar seu horário comigo:\nhttps://petzcare.org/')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Enviar pelo WhatsApp
+              </a>
+            </div>
+          </div>
+
           {/* Date Selector for Agenda */}
           <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
             <div className="flex items-center space-x-4">
@@ -587,6 +727,13 @@ export default function Professional() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'clients' && (
+        <div className="bg-white rounded-2xl shadow-xl p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">CRM — Clientes e Pets</h3>
+          <CrmPanel />
         </div>
       )}
 

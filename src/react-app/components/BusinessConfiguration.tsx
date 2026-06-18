@@ -50,7 +50,7 @@ export default function BusinessConfiguration() {
 
   const fetchBusinessConfig = async () => {
     try {
-      const data = await api.get<Partial<BusinessConfig>>('/admin/business-config');
+      const data = await api.get<Partial<BusinessConfig>>('/business-config');
       if (data) setConfig({ ...config, ...data });
     } catch (error) {
       console.error('Failed to fetch business config:', error);
@@ -79,19 +79,12 @@ export default function BusinessConfiguration() {
 
     try {
       setLogoUploading(true);
-      // Para facilitar no modo local e evitar problemas de rota/armazenamento,
-      // salvamos o logo como Data URL (base64) diretamente no business_config.logo_url.
-      // Recomendação: use um arquivo de logo pequeno.
-      const dataUrl: string = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('Falha ao ler arquivo de logo'));
-        reader.readAsDataURL(file);
-      });
+      const formData = new FormData();
+      formData.append('logo', file);
+      const { logoUrl } = await api.post<{ logoUrl: string }>('/upload-business-logo', formData);
 
-      const updatedConfig = { ...config, logo_url: dataUrl };
+      const updatedConfig = { ...config, logo_url: logoUrl };
       setConfig(updatedConfig);
-
       await api.post('/admin/business-config', updatedConfig);
       window.dispatchEvent(new Event('business-config-updated'));
     } catch (error) {

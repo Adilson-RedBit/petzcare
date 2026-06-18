@@ -3,7 +3,7 @@
  * Formato armazenado: `pbkdf2$<iters>$<salt_b64>$<hash_b64>`
  */
 
-const ITERATIONS = 600_000;
+const ITERATIONS = 10_000;
 const KEY_LENGTH = 32;
 const SALT_LENGTH = 16;
 

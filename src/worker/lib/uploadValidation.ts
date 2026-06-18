@@ -4,14 +4,7 @@
  */
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
-const ALLOWED_IMAGE_MIME = new Set([
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
-const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif", "svg"]);
 
 // Magic bytes para detecção real do tipo (anti-spoofing de Content-Type)
 async function detectMimeFromBytes(buffer: ArrayBuffer): Promise<string | null> {
@@ -19,33 +12,21 @@ async function detectMimeFromBytes(buffer: ArrayBuffer): Promise<string | null> 
   // JPEG: FF D8 FF
   if (view[0] === 0xff && view[1] === 0xd8 && view[2] === 0xff) return "image/jpeg";
   // PNG: 89 50 4E 47
-  if (
-    view[0] === 0x89 &&
-    view[1] === 0x50 &&
-    view[2] === 0x4e &&
-    view[3] === 0x47
-  )
+  if (view[0] === 0x89 && view[1] === 0x50 && view[2] === 0x4e && view[3] === 0x47)
     return "image/png";
   // GIF: 47 49 46 38
-  if (
-    view[0] === 0x47 &&
-    view[1] === 0x49 &&
-    view[2] === 0x46 &&
-    view[3] === 0x38
-  )
+  if (view[0] === 0x47 && view[1] === 0x49 && view[2] === 0x46 && view[3] === 0x38)
     return "image/gif";
-  // WEBP: RIFF ... WEBP
+  // WEBP: RIFF....WEBP
   if (
-    view[0] === 0x52 &&
-    view[1] === 0x49 &&
-    view[2] === 0x46 &&
-    view[3] === 0x46 &&
-    view[8] === 0x57 &&
-    view[9] === 0x45 &&
-    view[10] === 0x42 &&
-    view[11] === 0x50
+    view[0] === 0x52 && view[1] === 0x49 && view[2] === 0x46 && view[3] === 0x46 &&
+    view[8] === 0x57 && view[9] === 0x45 && view[10] === 0x42 && view[11] === 0x50
   )
     return "image/webp";
+  // SVG: começa com "<svg" ou "<?xml" (texto)
+  const text = new TextDecoder().decode(view);
+  if (text.trimStart().startsWith("<svg") || text.trimStart().startsWith("<?xml"))
+    return "image/svg+xml";
   return null;
 }
 
@@ -75,27 +56,26 @@ export async function validateImageUpload(
     return { ok: false, error: "Nome de arquivo inválido" };
   }
 
-  // Tipo MIME declarado
-  if (!ALLOWED_IMAGE_MIME.has(file.type)) {
-    return { ok: false, error: "Tipo não permitido" };
-  }
-
-  // Extensão
+  // Extensão declarada (verificação básica de nome)
   const ext = fname.split(".").pop() || "";
   if (!ALLOWED_EXTENSIONS.has(ext)) {
     return { ok: false, error: "Extensão não permitida" };
   }
 
-  // Leitura e verificação de magic bytes
+  // Magic bytes — fonte de verdade. Ignora o MIME declarado pelo browser
+  // pra evitar falsos positivos quando extensão e tipo não batem (ex: JPEG salvo como .png).
   const buffer = await file.arrayBuffer();
   const detected = await detectMimeFromBytes(buffer);
   if (!detected) {
     return { ok: false, error: "Arquivo não é uma imagem válida" };
   }
-  // Garantir que magic bytes batem com Content-Type declarado
-  if (file.type !== detected && !(file.type === "image/jpg" && detected === "image/jpeg")) {
-    return { ok: false, error: "Tipo declarado não corresponde ao conteúdo" };
-  }
 
-  return { ok: true, buffer, mime: detected, extension: ext };
+  const MIME_TO_EXT: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
+  };
+
+  return { ok: true, buffer, mime: detected, extension: MIME_TO_EXT[detected] ?? ext };
 }

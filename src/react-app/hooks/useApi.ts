@@ -41,7 +41,7 @@ export function useServices(petId?: number) {
 // =============================================================
 // Pets
 // =============================================================
-export function usePets() {
+export function usePets(tenantSlug?: string) {
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +64,11 @@ export function usePets() {
   }, [fetchPets]);
 
   const createPet = useCallback(async (petData: CreatePet) => {
-    const newPet = await api.post<Pet>("/pets", petData);
+    const qs = tenantSlug ? `?t=${tenantSlug}` : "";
+    const newPet = await api.post<Pet>(`/pets${qs}`, petData);
     setPets((prev) => [...prev, newPet]);
     return newPet;
-  }, []);
+  }, [tenantSlug]);
 
   return { pets, loading, error, createPet, refetch: fetchPets };
 }
@@ -136,7 +137,7 @@ export function useAppointments(date?: string) {
 // =============================================================
 // Available time slots
 // =============================================================
-export function useAvailableSlots(date: string) {
+export function useAvailableSlots(date: string, serviceId?: number, tenantSlug?: string) {
   const [slots, setSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,9 +152,10 @@ export function useAvailableSlots(date: string) {
       try {
         setLoading(true);
         setError(null);
-        const data = await api.get<string[]>(
-          `/available-slots?date=${date}`
-        );
+        const params = new URLSearchParams({ date });
+        if (serviceId) params.set("service_id", String(serviceId));
+        if (tenantSlug) params.set("t", tenantSlug);
+        const data = await api.get<string[]>(`/available-slots?${params}`);
         if (!cancelled) setSlots(data);
       } catch (err) {
         if (!cancelled) {
@@ -169,7 +171,7 @@ export function useAvailableSlots(date: string) {
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [date, serviceId, tenantSlug]);
 
   return { slots, loading, error };
 }

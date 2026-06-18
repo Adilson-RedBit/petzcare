@@ -7,12 +7,12 @@ export interface JWTPayload {
   email: string;
   name: string;
   role: string;
+  tenantId: number;
   iat: number;
   exp: number;
 }
 
-function getSecretKey(): string {
-  const secret = process.env.JWT_SECRET;
+function getSecretKey(secret?: string): string {
   if (!secret || secret.length < 32) {
     throw new Error(
       'JWT_SECRET não configurado ou muito curto (mínimo 32 caracteres). ' +
@@ -57,9 +57,10 @@ async function verify(data: string, signature: string, secret: string): Promise<
 
 export async function generateJWT(
   payload: Omit<JWTPayload, 'iat' | 'exp'>,
+  jwtSecret: string,
   expiresIn: number = 60 * 60 * 24 * 7,
 ): Promise<string> {
-  const secret = getSecretKey();
+  const secret = getSecretKey(jwtSecret);
   const now = Math.floor(Date.now() / 1000);
   const jwtPayload: JWTPayload = { ...payload, iat: now, exp: now + expiresIn };
 
@@ -71,9 +72,9 @@ export async function generateJWT(
   return `${data}.${signature}`;
 }
 
-export async function verifyJWT(token: string): Promise<JWTPayload | null> {
+export async function verifyJWT(token: string, jwtSecret: string): Promise<JWTPayload | null> {
   try {
-    const secret = getSecretKey();
+    const secret = getSecretKey(jwtSecret);
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 

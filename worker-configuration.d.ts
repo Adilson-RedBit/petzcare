@@ -52,6 +52,7 @@ declare global {
     DB: D1Database;
     R2_BUCKET: R2Bucket;
     JWT_SECRET: string;
+    RESEND_API_KEY?: string;
     NODE_ENV?: string;
     WORKER_URL?: string;
     ALLOWED_ORIGINS?: string;

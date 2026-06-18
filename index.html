@@ -1,43 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta property="og:title" content="PetCare Agenda" />
-    <meta property="og:description" content="Sistema de agendamento para petshop - banho e tosa" />
-    <meta
-      property="og:image"
-      content="https://static.getmocha.com/og.png"
-      type="image/png"
-    />
-    <meta
-      property="og:url"
-      content="https://getmocha.com"
-    />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1D4ED8" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="PetzCare" />
+
+    <!-- Ícones -->
+    <link rel="shortcut icon" href="/logo.png" type="image/png" />
+    <link rel="icon" href="/logo.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+
+    <!-- Open Graph (WhatsApp, Facebook, etc.) -->
+    <meta property="og:title" content="PetzCare — Agende o banho e tosa do seu pet" />
+    <meta property="og:description" content="Agendamento online fácil e rápido. Banho, tosa e muito carinho para o seu pet!" />
+    <meta property="og:image" content="https://petzcare.org/logo.png" />
+    <meta property="og:image:width" content="1024" />
+    <meta property="og:image:height" content="1024" />
+    <meta property="og:url" content="https://petzcare.org/" />
     <meta property="og:type" content="website" />
-    <meta property="og:author" content="PetCare" />
-    <meta property="og:site_name" content="PetCare Agenda" />
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:site" content="@petcare" />
-    <meta property="twitter:title" content="PetCare Agenda" />
-    <meta property="twitter:description" content="Sistema de agendamento para petshop - banho e tosa" />
-    <meta
-      property="twitter:image"
-      content="https://static.getmocha.com/og.png"
-      type="image/png"
-    />
-    <link
-      rel="shortcut icon"
-      href="https://static.getmocha.com/favicon.ico"
-      type="image/x-icon"
-    />
-    <link
-      rel="apple-touch-icon"
-      sizes="180x180"
-      href="https://static.getmocha.com/apple-touch-icon.png"
-      type="image/png"
-    />
-    <title>PetCare Agenda</title>
+    <meta property="og:site_name" content="PetzCare" />
+    <meta property="og:locale" content="pt_BR" />
+
+    <!-- Twitter / WhatsApp fallback -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PetzCare — Agende o banho e tosa do seu pet" />
+    <meta name="twitter:description" content="Agendamento online fácil e rápido. Banho, tosa e muito carinho para o seu pet!" />
+    <meta name="twitter:image" content="https://petzcare.org/logo.png" />
+
+    <title>PetzCare</title>
   </head>
   <body>
     <div id="root"></div>

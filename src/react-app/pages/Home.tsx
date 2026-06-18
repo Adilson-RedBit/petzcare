@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router';
 import Layout from '@/react-app/components/Layout';
 import AppointmentForm from '@/react-app/components/AppointmentForm';
 import NotificationBanner, { useNotifications } from '@/react-app/components/NotificationBanner';
@@ -7,29 +8,29 @@ import { CreateAppointment } from '@/shared/types';
 import {
   Calendar,
   CheckCircle,
-  Sparkles,
 } from 'lucide-react';
 
+type BusinessConfig = { business_name?: string; logo_url?: string; phone?: string };
+
 export default function Home() {
+  const [searchParams] = useSearchParams();
+  const tenantSlug = searchParams.get('t') || undefined;
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [config, setConfig] = useState<BusinessConfig>({});
   const { notifications, dismissNotification } = useNotifications();
 
-  // Simulate real-time updates (in production, you'd use WebSockets or polling)
   useEffect(() => {
-    const interval = setInterval(() => {
-      // This would trigger a refetch in a real app
-      // For demo purposes, we're just checking for changes in the existing data
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+    const qs = tenantSlug ? `?t=${tenantSlug}` : '';
+    api.get<BusinessConfig>(`/business-config${qs}`).then(setConfig).catch(() => {});
+  }, [tenantSlug]);
 
   const handleAppointmentSubmit = async (appointmentData: CreateAppointment) => {
     try {
       setLoading(true);
-      await api.post('/appointments', appointmentData);
+      const qs = tenantSlug ? `?t=${tenantSlug}` : '';
+      await api.post(`/appointments${qs}`, appointmentData);
       setSuccess(true);
       setShowForm(false);
       setTimeout(() => {
@@ -74,7 +75,7 @@ export default function Home() {
               ← Voltar
             </button>
           </div>
-          <AppointmentForm onSubmit={handleAppointmentSubmit} loading={loading} />
+          <AppointmentForm onSubmit={handleAppointmentSubmit} loading={loading} tenantSlug={tenantSlug} />
         </div>
       </Layout>
     );
@@ -93,18 +94,24 @@ export default function Home() {
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 rounded-3xl blur-3xl"></div>
           <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-blue-100">
-            <div className="flex justify-center mb-4">
-              <div className="bg-gradient-to-r from-pink-500 to-purple-600 p-4 rounded-full">
-                <Sparkles className="h-8 w-8 text-white" />
-              </div>
+            <div className="flex justify-center mb-6">
+              {config.logo_url ? (
+                <img src={config.logo_url} alt={config.business_name || 'Logo'} className="h-28 w-auto drop-shadow-md" />
+              ) : (
+                <img src="/logo.png" alt="PetzCare" className="h-28 w-auto drop-shadow-md" />
+              )}
             </div>
             <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-              Cuidamos do seu pet com
-              <span className="bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent"> carinho</span>
+              {config.business_name ? (
+                <>{config.business_name}</>
+              ) : (
+                <>Cuidamos do seu pet com
+                  <span className="bg-gradient-to-r from-blue-600 to-orange-500 bg-clip-text text-transparent"> carinho</span>
+                </>
+              )}
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Serviços profissionais de banho e tosa para deixar seu pet sempre limpo, 
-              cheiroso e lindinho. Agende agora mesmo!
+              Agende online de forma rápida e fácil. Escolha o serviço, o horário e pronto!
             </p>
             <button
               onClick={() => setShowForm(true)}

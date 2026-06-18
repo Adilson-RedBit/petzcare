@@ -51,6 +51,10 @@ export default function ServiceConfiguration() {
   };
 
   const handleCreateService = async () => {
+    if (!newService.duration_minutes || newService.duration_minutes <= 0) {
+      alert('A duração é obrigatória.\n\nEla determina os slots de agendamento disponíveis para os clientes — sem ela o sistema não consegue calcular os horários.');
+      return;
+    }
     try {
       await api.post('/admin/services', newService);
       await fetchServices();
@@ -69,6 +73,10 @@ export default function ServiceConfiguration() {
 
   const handleUpdateService = async () => {
     if (!editingService) return;
+    if (!editingService.duration_minutes || editingService.duration_minutes <= 0) {
+      alert('A duração é obrigatória.\n\nEla determina os slots de agendamento disponíveis para os clientes — sem ela o sistema não consegue calcular os horários.');
+      return;
+    }
     try {
       await api.put(`/admin/services/${editingService.id}`, editingService);
       await fetchServices();

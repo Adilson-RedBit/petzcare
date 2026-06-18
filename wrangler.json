@@ -2,6 +2,14 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "petcare-agenda-worker",
 	"main": "./src/worker/index.ts",
+	"workers_dev": false,
+	"routes": [
+		{ "pattern": "petzcare.org/*", "zone_name": "petzcare.org" },
+		{ "pattern": "www.petzcare.org/*", "zone_name": "petzcare.org" }
+	],
+	"assets": {
+		"not_found_handling": "single-page-application"
+	},
 	"compatibility_date": "2025-06-17",
 	"compatibility_flags": [
 		"nodejs_compat"

@@ -29,6 +29,7 @@ export const PetSchema = z.object({
   owner_name: z.string().nullable(),
   owner_phone: z.string().nullable(),
   owner_email: z.string().nullable(),
+  owner_address: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -46,6 +47,7 @@ export const CreatePetSchema = z.object({
   owner_name: z.string().min(1, 'Nome do responsável é obrigatório'),
   owner_phone: z.string().min(1, 'Telefone é obrigatório'),
   owner_email: z.string().email().optional().or(z.literal('')),
+  owner_address: z.string().optional(),
 });
 
 export type Pet = z.infer<typeof PetSchema>;

@@ -46,8 +46,9 @@ export function extractToken(request: Request): string | null {
  */
 export async function createSession(
   db: D1Database,
-  user: { id: number; email: string; name: string; role: string },
+  user: { id: number; email: string; name: string; role: string; tenantId: number },
   request: Request,
+  jwtSecret: string,
   expiresInSeconds: number = 60 * 60 * 24 * 7
 ): Promise<{ jwt: string; tokenHash: string }> {
   const jwt = await generateJWT(
@@ -56,7 +57,9 @@ export async function createSession(
       email: user.email,
       name: user.name,
       role: user.role,
+      tenantId: user.tenantId,
     },
+    jwtSecret,
     expiresInSeconds
   );
   const tokenHash = await hashToken(jwt);
@@ -97,9 +100,10 @@ export async function invalidateSession(
  */
 export async function validateSession(
   db: D1Database,
-  token: string
+  token: string,
+  jwtSecret: string
 ): Promise<{ payload: JWTPayload; tokenHash: string } | null> {
-  const payload = await verifyJWT(token);
+  const payload = await verifyJWT(token, jwtSecret);
   if (!payload) return null;
 
   const tokenHash = await hashToken(token);

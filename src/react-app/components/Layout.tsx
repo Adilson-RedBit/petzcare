@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Phone, Calendar, Home, Dog, Cat, PawPrint } from 'lucide-react';
-import { Link, useLocation } from 'react-router';
+import { Phone, Home, Dog, Cat, PawPrint } from 'lucide-react';
+import { Link, useLocation, useSearchParams } from 'react-router';
 import { api } from '@/react-app/lib/apiClient';
 
 interface LayoutProps {
@@ -15,12 +15,15 @@ type BusinessConfig = {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const tenantSlug = searchParams.get('t');
   const [config, setConfig] = useState<BusinessConfig>({});
 
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const data = await api.get<BusinessConfig>('/admin/business-config');
+        const qs = tenantSlug ? `?t=${tenantSlug}` : '';
+        const data = await api.get<BusinessConfig>(`/business-config${qs}`);
         if (data) setConfig(data);
       } catch (error) {
         console.error('Erro ao carregar config do negócio', error);
@@ -34,7 +37,7 @@ export default function Layout({ children }: LayoutProps) {
     return () => {
       window.removeEventListener('business-config-updated', onUpdated);
     };
-  }, []);
+  }, [tenantSlug]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -43,7 +46,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <Link to="/" className="flex items-center space-x-3">
+              <Link to={tenantSlug ? `/agendar?t=${tenantSlug}` : '/'} className="flex items-center space-x-3">
                 {config.logo_url ? (
                   <img 
                     src={config.logo_url} 
@@ -65,28 +68,15 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             
             <nav className="flex items-center space-x-4">
-              <Link
-                to="/"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname === '/' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Home className="h-4 w-4" />
-                <span className="hidden sm:inline">Cliente</span>
-              </Link>
-              <Link
-                to="/professional"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname === '/professional' 
-                    ? 'bg-purple-100 text-purple-700' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Profissional</span>
-              </Link>
+              {location.pathname !== '/agendar' && (
+                <Link
+                  to={tenantSlug ? `/agendar?t=${tenantSlug}` : '/agendar'}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  <Home className="h-4 w-4" />
+                  <span className="hidden sm:inline">Início</span>
+                </Link>
+              )}
             </nav>
 
             <div className="hidden sm:flex items-center space-x-6 text-sm text-gray-700">
